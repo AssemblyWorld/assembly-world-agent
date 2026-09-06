@@ -28,3 +28,8 @@ retain offline tests, and put all maintained documentation in README.md. Do not 
 `docs/`. Ignore data, logs, caches, environments and build outputs in Git. Complete
 bounded real-data checks when geometry, adapters or artifact interfaces change.
 Code, comments and documentation are English; conversation and plans are Chinese.
+
+Offline MP4/GIF replay lives in `vis` and consumes episode records only. Restore
+saved states without executing tools or loading datasets. Distinguish original
+observations from native visualization, preserve complete paginated call text, and
+record render metadata in logs. Explicit user output destinations are supported.

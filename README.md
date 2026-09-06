@@ -226,3 +226,42 @@ state persistence, corrupted-hash rejection, and separate GT-driven fixtures.
 This does not claim external MCP client connectivity. Native/WASM saved-state
 restoration is exact; cross-backend action reexecution uses `atol=1e-9, rtol=1e-7`.
 Native screenshot checks validate PNG integrity, not rendering or pixel parity.
+
+## MP4 and GIF replay
+
+Render an existing initial or recorded episode without loading HF data or executing
+its tools. Install the `episodes` extra and a system FFmpeg with H.264/GIF support:
+
+```sh
+uv run --extra episodes python scripts/render_episode.py /path/to/run.episode.zip \
+  --output /path/to/run.replay
+```
+
+The output argument is a filename **stem**: both `.mp4` and `.gif` are appended.
+Omit it to save media in the automatically created replay experiment under `logs`.
+Use `--format mp4` or `--format gif` to select just one. Existing outputs are not
+overwritten. The original ZIP remains unchanged.
+
+```python
+from assembly_world_agent.vis import render_episode
+
+result = render_episode("run.episode.zip", "run.replay", formats=("mp4", "gif"))
+```
+
+The video shows the saved agent-camera view, call progress, actor/status, timestamps,
+and the actual MCP arguments and return values. Long JSON is paginated, not silently
+truncated; inline image bytes are represented by a label. The main view consistently
+uses native MuJoCo rendering from saved integration states, recorded camera
+position/target and the platform's 38° vertical FOV, including screenshot calls.
+This avoids switching to a different renderer mid-replay. Original PNG observations
+remain in the archive and are referenced in call results; they do not replace the
+main view. Native lighting can differ from those Three.js observations. Recorded
+camera changes and discrete pose updates still take effect. No assembly score is inferred.
+
+Defaults: MP4 1600×900 at 12 fps, GIF 1280×720 at up to 6 fps, one second per JSON
+page. This is a readable step replay, not original wall-clock pacing. Recorded
+physics traces are sampled to at most 24 frames per call; no new intermediate poses
+are synthesized. Adjust `--seconds-per-page`, `--fps` and `--max-trace-frames` as
+needed. A setup-only archive produces an initial-scene clip. Native rendering needs
+an available OpenGL context (CoreGraphics on macOS, or a configured MuJoCo EGL/OSMesa
+backend on headless Linux). The CLI records parameters and output details in `logs`.
