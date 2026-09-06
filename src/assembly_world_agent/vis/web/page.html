@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Assembly results — __TITLE__</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #10151c;
+        color: #dfe6ee;
+        font:
+          14px system-ui,
+          sans-serif;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: #131c28f5;
+        padding: 18px 24px;
+        border-bottom: 1px solid #334155;
+      }
+      h1 {
+        font-size: 21px;
+        margin: 0 0 6px;
+      }
+      #subtitle {
+        color: #a5b4c8;
+        font-size: 12px;
+        margin-bottom: 14px;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        flex-wrap: wrap;
+      }
+      button,
+      select {
+        background: #263548;
+        color: #e8eef5;
+        border: 1px solid #43546b;
+        border-radius: 6px;
+        padding: 6px 10px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #3a506b;
+      }
+      button:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      label {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      main {
+        padding: 16px 24px;
+      }
+      .sample {
+        margin-bottom: 22px;
+        border: 1px solid #344155;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #18212d;
+      }
+      .sample h2 {
+        font-size: 15px;
+        margin: 0;
+        padding: 12px 14px;
+        background: #202c3c;
+      }
+      .badge {
+        font-weight: 400;
+        font-size: 12px;
+        color: #9dcaca;
+        margin-left: 14px;
+      }
+      .columns {
+        display: grid;
+        grid-template-columns: 22% 25% 29% 24%;
+        min-width: 950px;
+        min-height: 400px;
+      }
+      .cell {
+        min-width: 0;
+        padding: 12px;
+        border-right: 1px solid #344155;
+      }
+      .cell:last-child {
+        border: 0;
+      }
+      .title {
+        color: #9eb0c7;
+        font-size: 11px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+      }
+      .view {
+        height: 285px;
+        position: relative;
+        touch-action: none;
+        z-index: 2;
+      }
+      .view canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        pointer-events: none;
+      }
+      .manual-image {
+        height: 285px;
+        width: 100%;
+        object-fit: contain;
+        cursor: zoom-in;
+        background: #edf0f3;
+        border-radius: 4px;
+      }
+      .controls {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .controls button {
+        font-size: 12px;
+      }
+      .timeline {
+        width: 100%;
+      }
+      .call {
+        height: 335px;
+        overflow: auto;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font:
+          12px/1.5 ui-monospace,
+          monospace;
+        color: #cad7e6;
+      }
+      .error {
+        color: #f4b6a4;
+        padding: 8px 14px;
+        overflow-wrap: anywhere;
+      }
+      .empty {
+        height: 285px;
+        display: grid;
+        place-items: center;
+        color: #a9b7c9;
+      }
+      .source {
+        padding: 8px 14px;
+        color: #8192aa;
+        font-size: 11px;
+        overflow-wrap: anywhere;
+      }
+      dialog {
+        max-width: 95vw;
+        max-height: 96vh;
+        background: #172131;
+        color: white;
+        border: 1px solid #6a7b92;
+      }
+      dialog::backdrop {
+        background: #000b;
+      }
+      dialog img {
+        display: block;
+        max-width: 88vw;
+        max-height: 82vh;
+        object-fit: contain;
+      }
+      details summary {
+        cursor: pointer;
+        color: #9ec8de;
+      }
+      .scroll {
+        overflow-x: auto;
+      }
+      .loading {
+        padding: 30px;
+        color: #b3c3d8;
+      }
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid #81d4fa;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Assembly results</h1>
+      <div id="subtitle">__TITLE__</div>
+      <div class="toolbar">
+        <button id="first">First</button><button id="last">Last</button
+        ><button id="loop">Loop all</button><button id="pause">Pause all</button
+        ><select id="mode" aria-label="Playback mode">
+          <option value="all">All calls</option>
+          <option value="changes">Changes only</option></select
+        ><label
+          ><input id="follow" type="checkbox" checked />Follow recorded
+          camera</label
+        ><span>1 second / step</span>
+      </div>
+    </header>
+    <main id="samples"></main>
+    <dialog id="zoom">
+      <button id="close-zoom">Close</button><img alt="Enlarged manual page" />
+    </dialog>
+  </body>
+</html>

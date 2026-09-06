@@ -1,5 +1,6 @@
-"""Offline episode replay videos; no dataset access or tool reexecution."""
+"""Recorded episode videos and standalone experiment result pages."""
 
 from .replay import render_episode
+from .results import export_results
 
-__all__ = ["render_episode"]
+__all__ = ["render_episode", "export_results"]

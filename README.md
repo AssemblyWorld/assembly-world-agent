@@ -273,3 +273,59 @@ are synthesized. Adjust `--seconds-per-page`, `--fps` and `--max-trace-frames` a
 needed. A setup-only archive produces an initial-scene clip. Native rendering needs
 an available OpenGL context (CoreGraphics on macOS, or a configured MuJoCo EGL/OSMesa
 backend on headless Linux). The CLI records parameters and output details in `logs`.
+
+## Standalone HTML results
+
+Export all configured samples from an experiment into one offline HTML snapshot:
+
+```sh
+uv run --extra episodes python scripts/export_results.py logs/<run-id> \
+  --output logs/<run-id>/results.html
+```
+
+Open the HTML directly in a modern browser (`file://` works). Three.js, orbit
+controls, original manual pages, meshes and recorded poses are embedded; no CDN,
+server or neighboring files are required. Generation loads the experiment's pinned
+HF revision to rebuild GT, using standard HF caches (`HF_HOME` or `--cache-dir`).
+It never executes recorded calls or physics. Re-running replaces only the requested
+HTML atomically; the experiment inputs remain unchanged. Keep exports out of Git.
+
+Manual pages are always embedded as lossless WebP. This preserves every RGBA
+pixel and the original dimensions, verifies the decoded WebP pixels, and retains
+source checksums alongside embedded-image checksums. ICC profiles and EXIF
+metadata are carried over when present. No separate compression command is needed.
+
+Each row contains a paginated manual, GT viewer, recorded-state viewer and the
+current MCP call with complete arguments and expandable return/error text. Original
+observation references remain textual call metadata; the viewer renders geometry.
+A valid final episode takes precedence over the newest valid checkpoint. Missing
+recordings stay explicitly empty; unavailable resources and rejected archives are
+reported per row. GT meshes must match the recorded baked initial geometry.
+
+Global First/Last buttons pause playback. Loop all/Pause all control every recorded
+sample at one second per call. All calls includes queries and failed calls;
+Changes only retains changes to body poses, groups or the recorded camera. Original
+call numbers are preserved. Camera following defaults on; orbiting a replay view
+turns it off for that row until re-enabled. Manual pagination is independent of
+calls. Use the mouse to rotate, wheel to zoom, and right-drag to pan. Each viewer
+has a reset control. This snapshot is a visual inspection aid, not a computed score.
+
+The implementation lives in `vis/results.py` and `vis/web/`. Rows are gzip-packed
+and decoded when approaching the viewport. Visible views share a single WebGL
+renderer and copy its output into per-view 2D canvases, avoiding WebGL context
+limits. Manual pages use lossless WebP to reduce the single-file size.
+The embedded manifest records the snapshot time, pinned configuration and episode
+checksums. Generation requires the `episodes` extra but no OpenGL context.
+
+The checked-in `three.bundle.js` contains Three.js **0.180.0** and OrbitControls
+under MIT (`vis/web/THREE-LICENSE.txt`). To rebuild it, use a temporary directory,
+`pnpm add three@0.180.0 esbuild@0.25.10`, and bundle an entry containing:
+
+```js
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+window.ResultThree = { THREE, OrbitControls };
+```
+
+Run esbuild with `--bundle --minify --format=iife` and write its output to
+`vis/web/three.bundle.js`; no Node installation is needed to generate reports.
