@@ -1,0 +1,43 @@
+[project]
+name = "assembly-world-agent"
+version = "0.1.0"
+description = "Dataset adapters and reproducible geometry preparation for assembly agents"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "datasets>=5.0.1,<6",
+    "huggingface-hub>=1.0,<2",
+    "mapbox-earcut>=2.0,<3",
+    "numpy>=2.0,<3",
+    "pillow>=11",
+    "scipy>=1.14,<2",
+]
+
+[project.optional-dependencies]
+episodes = ["mujoco==3.12.0", "jsonschema>=4.26,<5"]
+
+[project.scripts]
+assembly-world-agent = "assembly_world_agent.cli:main"
+
+[project.urls]
+Repository = "https://github.com/AssemblyWorld/assembly-world-agent"
+
+[build-system]
+requires = ["uv_build>=0.12.1,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+browser = [
+    "playwright==1.62.0",
+]
+dev = ["pytest>=9", "ruff>=0.12"]
+inspection = ["matplotlib>=3.10"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]

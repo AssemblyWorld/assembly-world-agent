@@ -1,0 +1,169 @@
+from copy import deepcopy
+from dataclasses import replace
+
+import numpy as np
+import pytest
+
+from assembly_world_agent import PreparationConfig, adapt_sample, prepare_sample
+from assembly_world_agent.utils import apply_pose, rotation_matrix, separated, transform_points
+
+
+@pytest.mark.parametrize(
+    "dataset",
+    ["ikea-manual", "partnet-manualpa", "breaking-bad-volume-constrained", "assemblybench"],
+)
+def test_world_and_inverse_reconstruction(dataset, row, assemblybench_row):
+    raw = assemblybench_row if dataset == "assemblybench" else row
+    before = deepcopy(raw)
+    source = adapt_sample(dataset, raw, revision="fixture")
+    task = prepare_sample(source)
+    assert raw == before
+    assert task.revision == "fixture"
+    assert task.source_splits == raw["source_splits"]
+    assembled, boxes = [], []
+    for original, part in zip(source.parts, task.parts):
+        gt = apply_pose(part.mesh.vertices, part.gt_pose)
+        expected = apply_pose(original.mesh.vertices, original.assembled_pose)
+        np.testing.assert_allclose(transform_points(gt, task.world_to_source), expected, atol=1e-12)
+        np.testing.assert_allclose(gt, transform_points(expected, task.source_to_world), atol=1e-12)
+        np.testing.assert_array_equal(
+            original.mesh.vertices, raw["parts"][len(assembled)]["vertices"]
+        )
+        assert part.mesh.faces == original.mesh.faces
+        assert part.points.shape == (1000, 3)
+        assert np.isfinite(part.points).all()
+        for pose in (part.gt_pose, part.initial_pose):
+            np.testing.assert_allclose(np.linalg.norm(pose.quaternion), 1, atol=1e-12)
+        if len(original.mesh.normals):
+            expected_normals = (
+                original.mesh.normals
+                @ rotation_matrix(original.assembled_pose.quaternion).T
+                @ source.source_to_z_up.T
+            )
+            np.testing.assert_allclose(
+                part.mesh.normals @ rotation_matrix(part.gt_pose.quaternion).T,
+                expected_normals,
+                atol=1e-12,
+            )
+        initial = apply_pose(part.mesh.vertices, part.initial_pose)
+        assert initial[:, 2].min() == pytest.approx(0, abs=1e-12)
+        boxes.append(np.array([initial[:, :2].min(0), initial[:, :2].max(0)]))
+        assembled.append(gt)
+    points = np.concatenate(assembled)
+    assert np.linalg.norm(np.ptp(points, axis=0)) == pytest.approx(1, abs=1e-12)
+    np.testing.assert_allclose((points.max(0) + points.min(0))[:2] / 2, 0, atol=1e-12)
+    assert points[:, 2].min() == pytest.approx(0, abs=1e-12)
+    assert all(
+        separated(box, other, task.config.min_gap - 1e-12)
+        for i, box in enumerate(boxes)
+        for other in boxes[:i]
+    )
+
+
+def test_seeds_and_part_iteration_order_are_independent(row):
+    source = adapt_sample("ikea-manual", row, revision="fixture")
+    first = prepare_sample(source)
+    repeat = prepare_sample(source)
+    changed_initial = prepare_sample(source, PreparationConfig(initialization_seed=7))
+    changed_sampling = prepare_sample(source, PreparationConfig(sampling_seed=7))
+    reordered = prepare_sample(replace(source, parts=tuple(reversed(source.parts))))
+    reversed_parts = {p.part_id: p for p in reordered.parts}
+    for a, b, c, d in zip(first.parts, repeat.parts, changed_initial.parts, changed_sampling.parts):
+        np.testing.assert_array_equal(a.points, b.points)
+        np.testing.assert_array_equal(a.points, c.points)
+        np.testing.assert_array_equal(a.initial_pose.position, b.initial_pose.position)
+        np.testing.assert_array_equal(a.initial_pose.position, d.initial_pose.position)
+        np.testing.assert_array_equal(a.points, reversed_parts[a.part_id].points)
+        np.testing.assert_array_equal(
+            a.initial_pose.position, reversed_parts[a.part_id].initial_pose.position
+        )
+        assert not np.array_equal(a.points, d.points)
+        assert not np.array_equal(a.initial_pose.quaternion, c.initial_pose.quaternion)
+
+
+@pytest.mark.parametrize(
+    "dataset,axis",
+    [
+        ("ikea-manual", 1),
+        ("partnet-manualpa", 1),
+        ("breaking-bad-volume-constrained", 2),
+        ("assemblybench", 2),
+    ],
+)
+def test_source_up_maps_to_positive_z(dataset, axis, row, assemblybench_row):
+    source = adapt_sample(
+        dataset, assemblybench_row if dataset == "assemblybench" else row, revision="fixture"
+    )
+    np.testing.assert_array_equal(source.source_to_z_up @ np.eye(3)[axis], [0, 0, 1])
+    assert np.linalg.det(source.source_to_z_up) == 1
+
+
+def test_resource_and_fracture_identity_preservation(row, assemblybench_row):
+    broken = adapt_sample("breaking-bad-volume-constrained", row, revision="fixture")
+    assert broken.sample_id == row["sample_id"]
+    assert broken.manual == [] and broken.manual_pages == ()
+    bench = adapt_sample("assemblybench", assemblybench_row, revision="fixture")
+    assert bench.manual == assemblybench_row["manual"]
+    assert bench.annotations["motions"] == assemblybench_row["motions"]
+    assert bench.steps[0]["manual_page_index"] is None
+    # Pose is from the last assembly step, not the first motion frame.
+    np.testing.assert_array_equal(bench.parts[0].assembled_pose.position, [1, 2, 3])
+
+
+@pytest.mark.parametrize(
+    "mutation", ["missing_part", "missing_step", "missing_view", "zero_quaternion"]
+)
+def test_missing_or_invalid_assemblybench_pose_is_rejected(assemblybench_row, mutation):
+    if mutation == "missing_part":
+        del assemblybench_row["poses"]["0"]["1"]["01"]
+    elif mutation == "missing_step":
+        del assemblybench_row["poses"]["0"]["1"]
+    elif mutation == "missing_view":
+        assemblybench_row["poses"] = {}
+    else:
+        assemblybench_row["poses"]["0"]["1"]["01"][3:] = [0] * 4
+    with pytest.raises(ValueError):
+        adapt_sample("assemblybench", assemblybench_row, revision="fixture")
+
+
+@pytest.mark.parametrize(
+    "mutation", ["nan", "bad_index", "float_index", "duplicate", "empty", "line"]
+)
+def test_invalid_mesh_is_rejected(row, mutation):
+    if mutation == "nan":
+        row["parts"][0]["vertices"][0][0] = float("nan")
+    elif mutation == "bad_index":
+        row["parts"][0]["faces"][0][0] = 1000
+    elif mutation == "float_index":
+        row["parts"][0]["faces"][0][0] = 0.5
+    elif mutation == "duplicate":
+        row["parts"][1]["part_id"] = "00"
+    elif mutation == "empty":
+        row["parts"][0]["faces"] = []
+    else:
+        row["parts"][0]["vertices"] = [[float(i), 0.0, 0.0] for i in range(8)]
+    with pytest.raises(ValueError):
+        prepare_sample(adapt_sample("ikea-manual", row, revision="fixture"))
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"fps_points": 0},
+        {"fps_points": 5000},
+        {"surface_points": 4.5},
+        {"sampling_seed": -1},
+        {"min_gap": 0},
+        {"min_gap": float("nan")},
+    ],
+)
+def test_invalid_config(kwargs):
+    with pytest.raises(ValueError):
+        PreparationConfig(**kwargs)
+
+
+def test_zero_assembled_scale_is_rejected(row):
+    for part in row["parts"]:
+        part["vertices"] = [[0.0, 0.0, 0.0] for _ in part["vertices"]]
+    with pytest.raises(ValueError, match="Degenerate assembled"):
+        prepare_sample(adapt_sample("ikea-manual", row, revision="fixture"))

@@ -1,0 +1,95 @@
+"""One task protocol shared by every dataset adapter."""
+
+from copy import deepcopy
+
+import numpy as np
+
+from .models import AssemblyPart, AssemblySample, Mesh, PreparationConfig, SourceSample
+from .utils import (
+    apply_pose,
+    assembly_normalization,
+    farthest_point_sample,
+    make_pose,
+    pca_frame,
+    place_parts,
+    rotation_matrix,
+    sample_surface,
+    stable_rng,
+    transform_points,
+)
+
+
+def prepare_sample(sample: SourceSample, config: PreparationConfig | None = None) -> AssemblySample:
+    """Return independent task geometry; never modify the HF/source sample."""
+    config = config or PreparationConfig()
+    if not sample.parts or len({p.part_id for p in sample.parts}) != len(sample.parts):
+        raise ValueError("Expected nonempty, unique source parts")
+    assembled = [apply_pose(p.mesh.vertices, p.assembled_pose) for p in sample.parts]
+    normalization = assembly_normalization(np.concatenate(assembled), sample.source_to_z_up)
+    meshes, targets, clouds = {}, {}, {}
+    for part, vertices in zip(sample.parts, assembled):
+        world = transform_points(vertices, normalization)
+        center, basis = pca_frame(world)
+        local = (world - center) @ basis
+        normals = (
+            part.mesh.normals
+            @ rotation_matrix(part.assembled_pose.quaternion).T
+            @ sample.source_to_z_up.T
+            @ basis
+        )
+        mesh = Mesh(local, part.mesh.faces, normals, part.mesh.face_normal_indices)
+        try:
+            candidates = sample_surface(
+                mesh,
+                config.surface_points,
+                stable_rng(
+                    config.sampling_seed, sample.dataset, sample.sample_id, part.part_id, "surface"
+                ),
+            )
+            selected = farthest_point_sample(
+                candidates,
+                config.fps_points,
+                stable_rng(
+                    config.sampling_seed, sample.dataset, sample.sample_id, part.part_id, "fps"
+                ),
+            )
+        except ValueError as error:
+            raise ValueError(
+                f"{sample.dataset}/{sample.sample_id}/{part.part_id}: {error}"
+            ) from error
+        meshes[part.part_id] = mesh
+        targets[part.part_id] = make_pose(center, basis)
+        clouds[part.part_id] = candidates[selected].copy()
+    initial = place_parts(
+        {pid: mesh.vertices for pid, mesh in meshes.items()},
+        dataset=sample.dataset,
+        sample_id=sample.sample_id,
+        seed=config.initialization_seed,
+        gap=config.min_gap,
+    )
+    parts = tuple(
+        AssemblyPart(
+            part_id=p.part_id,
+            mesh=meshes[p.part_id],
+            points=clouds[p.part_id],
+            initial_pose=initial[p.part_id],
+            gt_pose=targets[p.part_id],
+            metadata=deepcopy(p.metadata),
+        )
+        for p in sample.parts
+    )
+    return AssemblySample(
+        dataset=sample.dataset,
+        sample_id=sample.sample_id,
+        revision=sample.revision,
+        parts=parts,
+        source_to_world=normalization,
+        world_to_source=np.linalg.inv(normalization),
+        config=config,
+        metadata=deepcopy(sample.metadata),
+        source_splits=deepcopy(sample.source_splits),
+        manual_pages=deepcopy(sample.manual_pages),
+        manual=deepcopy(sample.manual),
+        steps=deepcopy(sample.steps),
+        annotations=deepcopy(sample.annotations),
+    )
