@@ -33,7 +33,6 @@ ENABLED_TOOLS = [
     "capture_scene",
     "move_camera",
     "start_episode",
-    "end_episode",
 ]
 
 
@@ -207,7 +206,7 @@ def export_episode(sample: AssemblySample, output: str | Path) -> EpisodeExport:
         "Use explicit object IDs and visual feedback. Physics is disabled. "
         "Body poses are transforms of baked initial geometry, not part centers. "
         "Specify an explicit pivot when rotating around a part center. "
-        "End the episode when finished; no automatic success score is supplied."
+        "Episode termination is disabled; no automatic success score is supplied."
         if sample.dataset == "AssemblyWorld/ikea-manual"
         else "Assemble the supplied parts using the accompanying task resources. Physics is disabled.",
         requiredCapabilities=["state"],

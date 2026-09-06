@@ -31,6 +31,9 @@ def test_setup_archive_determinism_and_native_state(row, tmp_path):
     assert not manifest["runtime"]["physics"]["enabled"]
     assert not manifest["runtime"]["physics"]["detection"]
     assert not {"apply_force", "advance_simulation"} & set(manifest["runtime"]["enabledTools"])
+    assert "end_episode" not in manifest["runtime"]["enabledTools"]
+    assert "start_episode" in manifest["runtime"]["enabledTools"]
+    assert "End the episode when finished" not in manifest["task"]
     assert files["calls.jsonl"] == files["events.jsonl"] == b""
     assert all(
         k.startswith("world/") or k in {"frames.jsonl", "frames.bin", "calls.jsonl", "events.jsonl"}

@@ -102,6 +102,8 @@ official GARF, ManualPA, Breaking Bad or AssemblyBench evaluation reproduction.
    poses to act on this initial geometry; initialization transforms are not exported.
    Body positions are transform translations, not geometric centers. Use an explicit
    `pivot` for rotation about a part center; the runtime default uses body origins.
+   `end_episode` is disabled in exported runtime capabilities; agents cannot end
+   the episode through WebMCP.
 
 Defaults are `surface_points=4096`, `fps_points=1000`, `sampling_seed=0`,
 `initialization_seed=0`, `min_gap=0.02`. SHA-256-derived PCG64 streams separate
