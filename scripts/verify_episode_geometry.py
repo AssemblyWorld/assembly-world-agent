@@ -52,7 +52,9 @@ def verify(args, configuration, report):
             ),
         )
         for a, b, raw, saved in zip(sample.parts, alternative.parts, source.parts, original):
-            np.testing.assert_array_equal(a.points, b.points)
+            np.testing.assert_allclose(
+                apply_pose(a.points, a.gt_pose), apply_pose(b.points, b.gt_pose), atol=1e-12
+            )
             np.testing.assert_array_equal(raw.mesh.vertices, saved)
         maximum = 0.0
         with tempfile.TemporaryDirectory(prefix="awa-geometry-") as temporary:
@@ -96,9 +98,6 @@ def verify(args, configuration, report):
                     expected_parts.append(expected)
                 if pose_name == "gt_pose":
                     vertices = np.concatenate(expected_parts)
-                    np.testing.assert_allclose(
-                        np.linalg.norm(vertices.max(0) - vertices.min(0)), 1, atol=1e-12, rtol=0
-                    )
                     np.testing.assert_allclose(vertices[:, 2].min(), 0, atol=1e-12, rtol=0)
                     for part, raw in zip(sample.parts, source.parts):
                         assembled = apply_pose(raw.mesh.vertices, raw.assembled_pose)
@@ -117,7 +116,7 @@ def verify(args, configuration, report):
                 deterministic_archive=True,
                 initialization_independent_points=True,
                 input_unchanged=True,
-                gt_diagonal=1,
+                shape_only_scale=True,
                 gt_grounded=True,
                 inverse_transform=True,
                 max_compiled_surface_error=maximum,

@@ -44,8 +44,10 @@ def transform_points(points: np.ndarray, matrix: np.ndarray) -> np.ndarray:
     return np.asarray(points) @ matrix[:3, :3].T + matrix[:3, 3]
 
 
-def assembly_normalization(vertices: np.ndarray, source_to_z_up: np.ndarray) -> np.ndarray:
-    """Normalize assembled AABB diagonal to one and place its bottom at z=0."""
+def assembly_normalization(
+    vertices: np.ndarray, source_to_z_up: np.ndarray, scale: float
+) -> np.ndarray:
+    """Center/ground private GT, using a supplied shape-only scale."""
     make_pose(np.zeros(3), source_to_z_up)
     rotated = vertices @ source_to_z_up.T
     low, high = rotated.min(axis=0), rotated.max(axis=0)
@@ -54,46 +56,47 @@ def assembly_normalization(vertices: np.ndarray, source_to_z_up: np.ndarray) -> 
         raise ValueError("Degenerate assembled bounding box")
     origin = (low + high) / 2
     origin[2] = low[2]
+    if not np.isfinite(scale) or scale <= 0:
+        raise ValueError("Degenerate part scale")
     matrix = np.eye(4)
-    matrix[:3, :3] = source_to_z_up / diagonal
-    matrix[:3, 3] = -origin / diagonal
+    matrix[:3, :3] = source_to_z_up / scale
+    matrix[:3, 3] = -origin / scale
     return matrix
 
 
 def pca_frame(vertices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Return origin and right-handed basis; smallest principal axis is local Z.
 
-    Repeated-eigenvalue subspaces are resolved by projecting canonical world axes,
-    rather than relying on arbitrary eigenvectors returned by a LAPACK backend.
+    Axis signs and repeated eigenspaces use ordered centered vertices only.
+    Vertex order breaks exact symmetry ties; no source/world axes are consulted.
     """
-    center = (vertices.min(axis=0) + vertices.max(axis=0)) / 2
+    center = vertices.mean(axis=0)
     centered = vertices - vertices.mean(axis=0)
     values, vectors = np.linalg.eigh(centered.T @ centered)
     values, vectors = values[::-1], vectors[:, ::-1]
     tolerance = max(float(values[0]), np.finfo(float).tiny) * 1e-10
     axes = []
     start = 0
-    while start < 3:
+    while start < 3 and len(axes) < 2:
         end = start + 1
         while end < 3 and abs(values[end] - values[start]) <= tolerance:
             end += 1
         subspace = vectors[:, start:end]
         projector = subspace @ subspace.T
         chosen = []
-        for axis in np.eye(3):
+        for axis in centered / max(np.linalg.norm(centered, axis=1).max(), np.finfo(float).tiny):
             candidate = projector @ axis
             for previous in chosen:
                 candidate -= previous * np.dot(previous, candidate)
             length = np.linalg.norm(candidate)
             if length > 1e-8:
                 candidate /= length
-                if candidate[np.argmax(np.abs(candidate))] < 0:
-                    candidate *= -1
                 chosen.append(candidate)
             if len(chosen) == end - start:
                 break
         axes.extend(chosen)
         start = end
-    basis = np.column_stack(axes)
-    basis[:, 2] = np.cross(basis[:, 0], basis[:, 1])
+    if len(axes) < 2:
+        raise ValueError("Degenerate part: fewer than two geometric axes")
+    basis = np.column_stack([axes[0], axes[1], np.cross(axes[0], axes[1])])
     return center, basis

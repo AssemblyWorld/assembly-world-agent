@@ -62,7 +62,6 @@ def inspect(args, directory, records):
                 )
             gt_vertices = np.concatenate(assembled)
             diagonal = float(np.linalg.norm(np.ptp(gt_vertices, axis=0)))
-            np.testing.assert_allclose(diagonal, 1, atol=1e-12)
             np.testing.assert_allclose(gt_vertices[:, 2].min(), 0, atol=1e-12)
             np.testing.assert_allclose((gt_vertices.max(0) + gt_vertices.min(0))[:2], 0, atol=1e-12)
             digest = hashlib.sha256(b"".join(p.points.tobytes() for p in task.parts)).hexdigest()

@@ -168,7 +168,15 @@ def export_episode(sample: AssemblySample, output: str | Path) -> EpisodeExport:
         mujoco.mj_getState(model, data, state, spec)
     if not np.isfinite(state).all():
         raise ValueError("Nonfinite compiled integration state")
-    build = sha256(Path(__file__).read_bytes() + json_bytes(provenance))
+    package = Path(__file__).parent
+    producer_sources = [
+        Path(__file__),
+        package / "preparation.py",
+        *sorted((package / "utils").glob("*.py")),
+    ]
+    build = sha256(
+        b"".join(path.read_bytes() for path in producer_sources) + json_bytes(provenance)
+    )
     identity = sha256(
         json_bytes(
             {
@@ -197,6 +205,8 @@ def export_episode(sample: AssemblySample, output: str | Path) -> EpisodeExport:
         originTime=0,
         task="Assemble the supplied parts using the accompanying IKEA manual. "
         "Use explicit object IDs and visual feedback. Physics is disabled. "
+        "Body poses are transforms of baked initial geometry, not part centers. "
+        "Specify an explicit pivot when rotating around a part center. "
         "End the episode when finished; no automatic success score is supplied."
         if sample.dataset == "AssemblyWorld/ikea-manual"
         else "Assemble the supplied parts using the accompanying task resources. Physics is disabled.",

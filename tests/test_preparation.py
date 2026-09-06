@@ -50,7 +50,6 @@ def test_world_and_inverse_reconstruction(dataset, row, assemblybench_row):
         boxes.append(np.array([initial[:, :2].min(0), initial[:, :2].max(0)]))
         assembled.append(gt)
     points = np.concatenate(assembled)
-    assert np.linalg.norm(np.ptp(points, axis=0)) == pytest.approx(1, abs=1e-12)
     np.testing.assert_allclose((points.max(0) + points.min(0))[:2] / 2, 0, atol=1e-12)
     assert points[:, 2].min() == pytest.approx(0, abs=1e-12)
     assert all(
@@ -70,7 +69,9 @@ def test_seeds_and_part_iteration_order_are_independent(row):
     reversed_parts = {p.part_id: p for p in reordered.parts}
     for a, b, c, d in zip(first.parts, repeat.parts, changed_initial.parts, changed_sampling.parts):
         np.testing.assert_array_equal(a.points, b.points)
-        np.testing.assert_array_equal(a.points, c.points)
+        np.testing.assert_allclose(
+            apply_pose(a.points, a.gt_pose), apply_pose(c.points, c.gt_pose), atol=1e-12
+        )
         np.testing.assert_array_equal(a.initial_pose.position, b.initial_pose.position)
         np.testing.assert_array_equal(a.initial_pose.position, d.initial_pose.position)
         np.testing.assert_array_equal(a.points, reversed_parts[a.part_id].points)
@@ -78,7 +79,9 @@ def test_seeds_and_part_iteration_order_are_independent(row):
             a.initial_pose.position, reversed_parts[a.part_id].initial_pose.position
         )
         assert not np.array_equal(a.points, d.points)
-        assert not np.array_equal(a.initial_pose.quaternion, c.initial_pose.quaternion)
+        assert not np.array_equal(a.mesh.vertices, c.mesh.vertices)
+        np.testing.assert_array_equal(a.initial_pose.position, np.zeros(3))
+        np.testing.assert_array_equal(a.initial_pose.quaternion, [1, 0, 0, 0])
 
 
 @pytest.mark.parametrize(
@@ -167,3 +170,65 @@ def test_zero_assembled_scale_is_rejected(row):
         part["vertices"] = [[0.0, 0.0, 0.0] for _ in part["vertices"]]
     with pytest.raises(ValueError, match="Degenerate assembled"):
         prepare_sample(adapt_sample("ikea-manual", row, revision="fixture"))
+
+
+def test_initial_geometry_is_independent_of_target_poses(row):
+    from scipy.spatial.transform import Rotation
+
+    from assembly_world_agent.utils import make_pose
+
+    source = adapt_sample("ikea-manual", row, revision="fixture")
+    changed = replace(
+        source,
+        parts=tuple(
+            replace(
+                part,
+                assembled_pose=make_pose(
+                    np.array([i * 4.0, -3.0, 7.0]),
+                    Rotation.from_rotvec([0.4 + i, -0.7, 0.2]).as_matrix(),
+                ),
+            )
+            for i, part in enumerate(source.parts)
+        ),
+    )
+    first, second = prepare_sample(source), prepare_sample(changed)
+    for a, b in zip(first.parts, second.parts):
+        np.testing.assert_array_equal(a.mesh.vertices, b.mesh.vertices)
+        np.testing.assert_array_equal(a.points, b.points)
+        np.testing.assert_array_equal(a.mesh.normals, b.mesh.normals)
+        np.testing.assert_array_equal(a.initial_pose.position, [0, 0, 0])
+        np.testing.assert_array_equal(a.initial_pose.quaternion, [1, 0, 0, 0])
+
+
+def test_source_coordinate_reexpression_preserves_initial_scene(row):
+    from scipy.spatial.transform import Rotation
+
+    from assembly_world_agent.utils import make_pose
+
+    source = adapt_sample("ikea-manual", row, revision="fixture")
+    parts = []
+    for i, part in enumerate(source.parts):
+        rotation = Rotation.from_rotvec([0.3, -0.5 - i, 0.8]).as_matrix()
+        offset = np.array([3.0, -2.0, 5.0])
+        target_rotation = rotation_matrix(part.assembled_pose.quaternion) @ rotation.T
+        parts.append(
+            replace(
+                part,
+                mesh=replace(
+                    part.mesh,
+                    vertices=part.mesh.vertices @ rotation.T + offset,
+                    normals=part.mesh.normals @ rotation.T,
+                ),
+                assembled_pose=make_pose(
+                    part.assembled_pose.position - target_rotation @ offset, target_rotation
+                ),
+            )
+        )
+    first, second = prepare_sample(source), prepare_sample(replace(source, parts=tuple(parts)))
+    for a, b in zip(first.parts, second.parts):
+        np.testing.assert_allclose(a.mesh.vertices, b.mesh.vertices, atol=1e-11)
+        np.testing.assert_allclose(
+            apply_pose(a.mesh.vertices, a.gt_pose),
+            apply_pose(b.mesh.vertices, b.gt_pose),
+            atol=1e-11,
+        )

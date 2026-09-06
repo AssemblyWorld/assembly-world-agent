@@ -81,11 +81,13 @@ official GARF, ManualPA, Breaking Bad or AssemblyBench evaluation reproduction.
 1. Restore assembly and convert to Z-up. IKEA and PartNet rotate `(x,y,z)` to
    `(x,-z,y)`; others use identity. AssemblyBench requires every final view-0 pose
    and does not substitute identities or motion start frames.
-2. Normalize the entire assembled AABB diagonal to one, center in XY and ground
-   at `z=0`. Parts share one scale; units are normalized, not meters.
-3. Define local origin at each normalized part AABB center and use deterministic
-   right-handed vertex PCA, with the smallest principal axis as local Z. Repeated
-   eigenspaces use canonical-axis projection and deterministic sign rules.
+2. Use one shape-only scale: twice the largest vertex radius about a part vertex
+   centroid. The private assembly is centered in XY and grounded at `z=0`.
+   The scale does not depend on assembled part poses; units are normalized.
+3. Center each part at its vertex centroid and use right-handed vertex PCA, with
+   the smallest principal axis as local Z. Axis signs and repeated eigenspaces
+   use ordered centered vertices, never assembled world axes. Vertex order breaks
+   exact symmetry ties.
 4. Preserve original polygons and normal indices. Triangulate a derived mesh for
    surface sampling/rendering, including concave polygons. Sample 4096 area-weighted
    candidates then retain 1000 FPS points in local coordinates. Best-fit-plane
@@ -95,14 +97,18 @@ official GARF, ManualPA, Breaking Bad or AssemblyBench evaluation reproduction.
    full rotated-mesh XY AABBs with a 0.02 minimum gap. Bounded retries expand the
    region; shuffled grid slots provide a checked nonoverlapping fallback. All
    parts move; there is no fixed anchor or physical stability claim.
+6. Bake placement into vertices, normals and sampled points. Initial body poses
+   are identity (zero translation, wxyz quaternion `[1,0,0,0]`). Rebase private GT
+   poses to act on this initial geometry; initialization transforms are not exported.
+   Body positions are transform translations, not geometric centers. Use an explicit
+   `pivot` for rotation about a part center; the runtime default uses body origins.
 
 Defaults are `surface_points=4096`, `fps_points=1000`, `sampling_seed=0`,
 `initialization_seed=0`, `min_gap=0.02`. SHA-256-derived PCG64 streams separate
-sampling, FPS and initialization. Changing initialization leaves evaluation points
-unchanged. Bitwise reproducibility is checked with the locked runtime, not promised
+sampling, FPS and initialization. Changing initialization preserves the sampled surface points after GT mapping. Bitwise reproducibility is checked with the locked runtime, not promised
 across arbitrary numerical library/platform versions.
 
-`initial_pose` and `gt_pose` map the same local geometry to task world using
+`initial_pose` and `gt_pose` map the same baked initial geometry to task world using
 translation and **wxyz** quaternions. `source_to_world` and `world_to_source` are
 inverse 4×4 similarity transforms. Source annotations remain in their original
 coordinates and IDs. Stored HF split is `full`; original memberships are metadata,

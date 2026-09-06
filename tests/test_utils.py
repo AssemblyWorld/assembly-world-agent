@@ -61,8 +61,6 @@ def test_fps_spread_and_duplicate_candidates():
 def test_pca_degeneracy_and_smallest_axis(dimensions):
     vertices = np.array([[x, y, z] for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)]) * dimensions
     center, basis = pca_frame(vertices)
-    _, permuted = pca_frame(vertices[::-1])
-    np.testing.assert_allclose(basis, permuted, atol=1e-12)
     np.testing.assert_allclose(basis.T @ basis, np.eye(3), atol=1e-12)
     assert np.linalg.det(basis) == pytest.approx(1)
     variances = np.var((vertices - center) @ basis, axis=0)
@@ -93,3 +91,17 @@ def test_grounded_nonoverlap_with_long_parts_and_grid_fallback(count, fallback):
         box = np.array([points[:, :2].min(0), points[:, :2].max(0)])
         assert all(separated(box, other, 0.02 - 1e-12) for other in boxes)
         boxes.append(box)
+
+
+@pytest.mark.parametrize("dimensions", [(1, 1, 1), (2, 2, 0), (10, 0.1, 0.01)])
+def test_pca_frame_does_not_use_world_axes(dimensions):
+    from scipy.spatial.transform import Rotation
+
+    vertices = np.array([[x, y, z] for x in (-1, 1) for y in (-1, 1) for z in (-1, 1)]) * dimensions
+    rotation = Rotation.from_rotvec([0.7, -0.3, 1.2]).as_matrix()
+    center, basis = pca_frame(vertices)
+    moved = vertices @ rotation.T + [3, -2, 5]
+    moved_center, moved_basis = pca_frame(moved)
+    np.testing.assert_allclose(
+        (vertices - center) @ basis, (moved - moved_center) @ moved_basis, atol=1e-11
+    )
