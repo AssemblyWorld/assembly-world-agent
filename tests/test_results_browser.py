@@ -69,7 +69,7 @@ def test_offline_controls(row, tmp_path, monkeypatch):
             }
         )
     )
-    monkeypatch.setattr(results, "load_samples", lambda *a, **kw: iter([source]))
+    monkeypatch.setattr(results, "load_result_samples", lambda *a, **kw: iter([source]))
     monkeypatch.setattr(
         results,
         "select_episode",
@@ -103,6 +103,23 @@ def test_offline_controls(row, tmp_path, monkeypatch):
         page.goto(output.as_uri())
         page.wait_for_function("window.resultViewer?.rows[0]?.replay")
         assert page.locator(".sample").count() == 2
+        assert page.locator(".call").first.inner_text().startswith("bad_call")
+        assert page.locator("#follow").is_checked()
+        assert page.evaluate("resultViewer.rows[0].follow && !resultViewer.rows[0].playing")
+        assert page.evaluate("resultViewer.rows[0].replay.camera.position.toArray()") == pytest.approx(
+            frame["camera"]["position"]
+        )
+        assert page.evaluate("resultViewer.rows[1].current") == -1
+        colors = "resultViewer.rows[0].gt.group.children.map(m => m.material.color.getHex())"
+        replay_colors = colors.replace(".gt.", ".replay.")
+        initial_colors = page.evaluate(colors)
+        assert len(set(initial_colors)) == len(prepared.parts)
+        assert page.evaluate(replay_colors) == initial_colors
+        page.locator("#colors").uncheck()
+        assert page.evaluate(colors) == [0xA8BDCC] * len(prepared.parts)
+        assert page.evaluate(replay_colors) == page.evaluate(colors)
+        page.locator("#colors").check()
+        assert page.evaluate(colors) == initial_colors
         page.locator("#last").click()
         assert page.locator(".call").first.inner_text().startswith("bad_call")
         page.locator("#mode").select_option("changes")
@@ -135,10 +152,13 @@ def test_offline_controls(row, tmp_path, monkeypatch):
             window.scrollTo(0, document.body.scrollHeight);
         }""")
         page.wait_for_function("resultViewer.rows[0].data === null")
+        page.locator("#colors").uncheck()
         page.locator("#last").click()
         page.evaluate("window.scrollTo(0, 0)")
         page.wait_for_function("Boolean(resultViewer.rows[0].replay)")
         assert page.locator(".call").first.inner_text().startswith("bad_call")
+        assert page.evaluate(colors) == [0xA8BDCC] * len(prepared.parts)
+        assert page.evaluate(replay_colors) == page.evaluate(colors)
         assert "2 / 2" in cell.inner_text()
         assert not page.evaluate("Boolean(window.injected)")
         assert not errors and not requests

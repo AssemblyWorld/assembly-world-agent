@@ -59,15 +59,20 @@ class EpisodeExport:
     part_ids: dict[str, str]
 
 
-def _obj(part) -> bytes:
+def _render_mesh(part, *, validate=True) -> tuple[np.ndarray, np.ndarray]:
+    """Return the validated triangle mesh used by episode OBJ and result viewers."""
     # Revalidate at the API boundary: callers can edit the dataclass's NumPy buffers.
-    mesh = mesh_from_record(
-        {
-            "vertices": part.mesh.vertices,
-            "faces": part.mesh.faces,
-            "normals": part.mesh.normals,
-            "face_normal_indices": part.mesh.face_normal_indices,
-        }
+    mesh = (
+        mesh_from_record(
+            {
+                "vertices": part.mesh.vertices,
+                "faces": part.mesh.faces,
+                "normals": part.mesh.normals,
+                "face_normal_indices": part.mesh.face_normal_indices,
+            }
+        )
+        if validate
+        else part.mesh
     )
     vertices = mesh.vertices
     faces = triangulate(mesh)
@@ -75,6 +80,11 @@ def _obj(part) -> bytes:
         # MuJoCo requires at least four vertices; preserve the exact source surface.
         vertices = np.vstack([vertices, vertices.mean(axis=0)])
         faces = np.array([[a, b, 3] for face in faces for a, b in zip(face, np.roll(face, -1))])
+    return vertices, faces
+
+
+def _obj(part) -> bytes:
+    vertices, faces = _render_mesh(part)
     lines = ["v " + " ".join(format(float(v), ".17g") for v in point) for point in vertices]
     lines.extend("f " + " ".join(str(int(i) + 1) for i in face) for face in faces)
     return ("\n".join(lines) + "\n").encode()

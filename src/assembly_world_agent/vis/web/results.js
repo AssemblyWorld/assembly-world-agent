@@ -24,7 +24,13 @@
   // One WebGL context renders into visible 2D canvases, avoiding context limits.
   const rows = [];
   let mode = "all",
-    follow = true;
+    follow = true,
+    showColors = true;
+  function partColor(index) {
+    return showColors
+      ? new T.Color().setHSL((0.08 + index * 0.61803398875) % 1, 0.65, 0.58)
+      : new T.Color(0xa8bdcc);
+  }
   const zoom = $("zoom");
   $("close-zoom").onclick = () => zoom.close();
   function fit(v) {
@@ -82,13 +88,15 @@
     const light = new T.DirectionalLight(0xffffff, 3);
     light.position.set(3, -4, 6);
     scene.add(light);
-    const material = new T.MeshStandardMaterial({
-      color: 0xa8bdcc,
-      roughness: 0.72,
-      metalness: 0.06,
-      side: T.DoubleSide,
+    geometries.forEach((g, index) => {
+      const material = new T.MeshStandardMaterial({
+        color: partColor(index),
+        roughness: 0.72,
+        metalness: 0.06,
+        side: T.DoubleSide,
+      });
+      group.add(new T.Mesh(g, material));
     });
-    geometries.forEach((g) => group.add(new T.Mesh(g, material)));
     const v = {
       view,
       canvas,
@@ -315,7 +323,7 @@
           "div",
           "source",
           data.episode_source
-            ? `${data.episode_source.path} · SHA-256 ${data.episode_source.sha256}`
+            ? data.episode_source.path
             : "No final episode or valid checkpoint at snapshot time",
         ),
       );
@@ -393,7 +401,7 @@
       visible: false,
       follow,
       playing: false,
-      current: -1,
+      current: s.call_count - 1,
       last: performance.now(),
     };
     r.steps = timeline(r);
@@ -432,6 +440,15 @@
       r.follow = follow;
       if (r.followBox) r.followBox.checked = follow;
       update(r);
+    });
+  };
+  $("colors").onchange = () => {
+    showColors = $("colors").checked;
+    rows.forEach((r) => {
+      for (const v of [r.gt, r.replay])
+        v?.group.children.forEach((mesh, index) => {
+          mesh.material.color.copy(partColor(index));
+        });
     });
   };
   function render(now) {

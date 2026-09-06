@@ -232,3 +232,23 @@ def test_source_coordinate_reexpression_preserves_initial_scene(row):
             apply_pose(b.mesh.vertices, b.gt_pose),
             atol=1e-11,
         )
+
+
+def test_geometry_only_preparation_preserves_exact_task(row, monkeypatch):
+    from assembly_world_agent import adapt_sample, preparation, prepare_sample
+    from assembly_world_agent.episodes import _obj
+
+    source = adapt_sample("ikea-manual", row, revision="fixture")
+    full = prepare_sample(source)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Result export must not sample point clouds")
+
+    monkeypatch.setattr(preparation, "sample_surface", forbidden)
+    monkeypatch.setattr(preparation, "farthest_point_sample", forbidden)
+    geometry = prepare_sample(source, sample_points=False)
+    for a, b in zip(full.parts, geometry.parts):
+        assert _obj(a) == _obj(b)
+        assert np.array_equal(a.gt_pose.position, b.gt_pose.position)
+        assert np.array_equal(a.gt_pose.quaternion, b.gt_pose.quaternion)
+        assert b.points.shape == (0, 3)

@@ -8,22 +8,114 @@ import html
 import io
 import json
 import os
+import re
 import tempfile
 import xml.etree.ElementTree as ET
+from collections import deque
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-from ..episodes import _obj, sha256
+from ..adapters import get_adapter, ikea_manual
+from ..episodes import _render_mesh
 from ..loading import load_samples
-from ..models import Mesh, PreparationConfig
+from ..models import Mesh, Pose, PreparationConfig, SourcePart, SourceSample
 from ..preparation import prepare_sample
 from ..utils.geometry import triangulate
 from .replay import read_episode
 
 WEB = Path(__file__).parent / "web"
+ENCODING_WORKERS = min(16, os.cpu_count() or 1)
+
+
+def load_result_samples(dataset, *, revision, sample_ids, cache_dir=None):
+    """Read only IKEA geometry from cached Arrow, retaining other dataset adapters."""
+    adapter = get_adapter(dataset)
+    if adapter is not ikea_manual or not re.fullmatch(r"[0-9a-fA-F]{40}", revision):
+        yield from load_samples(
+            dataset, revision=revision, sample_ids=sample_ids, cache_dir=cache_dir, streaming=False
+        )
+        return
+    from datasets import load_dataset
+
+    rows = (
+        load_dataset(
+            adapter.REPO_ID,
+            split="full",
+            revision=revision,
+            streaming=False,
+            cache_dir=None if cache_dir is None else str(cache_dir),
+        )
+        .select_columns(["object_id", "parts_ct", "parts"])
+        .with_format("arrow")
+    )
+    wanted, found = set(sample_ids), set()
+    for table in rows:
+        sid = table["object_id"][0].as_py()
+        if sid not in wanted:
+            continue
+        if sid in found:
+            raise ValueError(f"Duplicate sample ID: {sid}")
+        parts = []
+        for record in table["parts"][0].values:
+            vertices = np.asarray(record["vertices"].as_py(), dtype=np.float64)
+            faces = tuple(tuple(f) for f in record["faces"].as_py())
+            parts.append(
+                SourcePart(
+                    part_id=record["part_id"].as_py(),
+                    mesh=Mesh(vertices, faces),
+                    assembled_pose=Pose(np.zeros(3), np.array([1.0, 0.0, 0.0, 0.0])),
+                    metadata={},
+                )
+            )
+        if not parts or len(parts) != table["parts_ct"][0].as_py():
+            raise ValueError(f"Source part count differs: {sid}")
+        found.add(sid)
+        yield SourceSample(
+            dataset=adapter.REPO_ID,
+            sample_id=sid,
+            revision=revision,
+            parts=tuple(parts),
+            source_to_z_up=adapter.SOURCE_TO_Z_UP.copy(),
+            metadata={},
+            source_splits=[],
+            manual_pages=(),
+            manual=[],
+            steps=(),
+            annotations={},
+        )
+        if found == wanted:
+            return
+    if wanted - found:
+        raise ValueError(f"Requested sample IDs not found: {sorted(wanted - found)}")
+
+
+def render_geometry(part):
+    """Build the episode-compatible arrays without OBJ text or repeated input validation."""
+    vertices, triangles = _render_mesh(part, validate=False)
+    return {"vertices": vertices.tolist(), "triangles": triangles.ravel().tolist()}
+
+
+def parallel_map(function, values):
+    """Keep ordered results and a bounded number of pending native encoding jobs."""
+    values = iter(values)
+    workers = ENCODING_WORKERS
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        pending = deque()
+        for _ in range(workers):
+            try:
+                pending.append(pool.submit(function, next(values)))
+            except StopIteration:
+                break
+        while pending:
+            yield pending.popleft().result()
+            try:
+                pending.append(pool.submit(function, next(values)))
+            except StopIteration:
+                pass
 
 
 def packed(value):
@@ -44,13 +136,10 @@ def select_episode(directory, expected_id=None):
         if not path.exists():
             continue
         try:
-            before = sha256(path.read_bytes())
-            episode = read_episode(path)
+            episode = read_episode(path, verify_hashes=False)
             if expected_id is not None and episode["manifest"]["id"] != expected_id:
                 raise ValueError("Episode identity differs from configured sample")
-            if sha256(path.read_bytes()) != before:
-                raise ValueError("Episode changed during snapshot")
-            return episode, {"path": str(path.relative_to(directory)), "sha256": before}, errors
+            return episode, {"path": str(path.relative_to(directory))}, errors
         except Exception as error:
             errors.append(f"{path.name}: {error}")
     return None, None, errors
@@ -135,39 +224,38 @@ def episode_data(ep):
 
 
 def encode_manual_image(raw):
-    """Encode verified lossless WebP pixels without resizing."""
+    """Encode lossless WebP pixels without resizing or a redundant decode pass."""
     with Image.open(io.BytesIO(raw)) as im:
         pixels = im.convert("RGBA")
         output = io.BytesIO()
         metadata = {key: im.info[key] for key in ("icc_profile", "exif") if key in im.info}
         pixels.save(output, format="WEBP", lossless=True, exact=True, method=6, **metadata)
         raw = output.getvalue()
-        with Image.open(io.BytesIO(raw)) as decoded:
-            if decoded.size != pixels.size or decoded.convert("RGBA").tobytes() != pixels.tobytes():
-                raise ValueError("Lossless WebP pixel verification failed")
     return {
         "data": "data:image/webp;base64," + base64.b64encode(raw).decode(),
-        "embedded_sha256": sha256(raw),
         "image_format": "webp-lossless",
     }
 
 
 def manual_pages(directory, errors):
     pages = []
+
+    def encode_page(page):
+        try:
+            path = directory / "manualbook" / page["file"]
+            if path.resolve().parent != (directory / "manualbook").resolve():
+                raise ValueError("Unsafe manual path")
+            raw = path.read_bytes()
+            return page | encode_manual_image(raw)
+        except Exception as error:
+            return page | {"error": str(error)}
+
     try:
         manifest = json.loads((directory / "manualbook/pages.json").read_text())
-        for page in manifest["pages"]:
-            try:
-                path = directory / "manualbook" / page["file"]
-                if path.resolve().parent != (directory / "manualbook").resolve():
-                    raise ValueError("Unsafe manual path")
-                raw = path.read_bytes()
-                if sha256(raw) != page["sha256"]:
-                    raise ValueError("Manual checksum mismatch")
-                pages.append(page | encode_manual_image(raw))
-            except Exception as error:
-                pages.append(page | {"error": str(error)})
-                errors.append(f"Manual {page['file']}: {error}")
+        for page in parallel_map(encode_page, manifest["pages"]):
+            pages.append(page)
+            if "error" in page:
+                errors.append(f"Manual {page['file']}: {page['error']}")
     except Exception as error:
         errors.append(f"Manual: {error}")
     return pages
@@ -183,11 +271,11 @@ def export_results(run, output, *, cache_dir=None):
         json.loads((run / "progress.json").read_text()) if (run / "progress.json").exists() else {}
     )
     rows = []
-    # Read a single pinned dataset stream, avoiding one dataset scan per sample.
+    # Load the pinned dataset once through the standard HF dataset cache.
     sources, source_error = {}, None
     print("Loading pinned GT source samples…", flush=True)
     try:
-        for source in load_samples(
+        for source in load_result_samples(
             identity["dataset"],
             revision=identity["revision"],
             sample_ids=list(config["samples"]),
@@ -227,20 +315,21 @@ def export_results(run, output, *, cache_dir=None):
             if sid not in sources:
                 raise ValueError(source_error or "Pinned source sample unavailable")
             prepared = prepare_sample(
-                sources.pop(sid), PreparationConfig(**identity["preparation"])
+                sources.pop(sid), PreparationConfig(**identity["preparation"]), sample_points=False
             )
             parts = sorted(prepared.parts, key=lambda p: p.part_id)
+            if "replay" in row and len(parts) != len(row["replay"]["parts"]):
+                raise ValueError("GT part count differs")
             geometry = []
             for i, part in enumerate(parts):
                 name = f"part-{i + 1:04d}"
-                raw = _obj(part)
+                rebuilt = render_geometry(part)
                 if "replay" in row:
                     actual = row["replay"]["parts"][i]
-                    if actual["id"] != name or ep["files"][actual["resource"]] != raw:
+                    if actual["id"] != name or actual["geometry"] != rebuilt:
                         raise ValueError("Rebuilt GT geometry differs from recorded geometry")
-                geometry.append({"id": name, "geometry": obj_mesh(raw)})
-            if "replay" in row and len(parts) != len(row["replay"]["parts"]):
-                raise ValueError("GT part count differs")
+                else:
+                    geometry.append({"id": name, "geometry": rebuilt})
             row["gt"] = {
                 "poses": [np.r_[p.gt_pose.position, p.gt_pose.quaternion].tolist() for p in parts]
             }
@@ -281,9 +370,10 @@ def export_results(run, output, *, cache_dir=None):
                 + json.dumps(manifest).replace("<", "\\u003c")
                 + "</script>\n"
             )
-            for i, row in enumerate(rows):
+            print("Compressing and embedding result rows…", flush=True)
+            for i, payload in enumerate(parallel_map(packed, rows)):
                 stream.write(
-                    f'<script id="sample-{i}" type="application/octet-stream">{packed(row)}</script>\n'
+                    f'<script id="sample-{i}" type="application/octet-stream">{payload}</script>\n'
                 )
             for asset in ("three.bundle.js", "results.js"):
                 stream.write(

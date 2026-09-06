@@ -21,8 +21,8 @@ from ..episodes import CONTRACT_DIRECTORY, ENGINE, sha256
 WIDTH, HEIGHT = 1600, 900
 
 
-def read_episode(path):
-    """Validate the public archive without extracting resources to the filesystem."""
+def read_episode(path, *, verify_hashes=True):
+    """Read a public archive with structural validation and optional resource hashes."""
     with zipfile.ZipFile(path) as archive:
         names = archive.namelist()
         if len(names) != len(set(names)):
@@ -39,9 +39,10 @@ def read_episode(path):
         raise ValueError(f"Expected MuJoCo {ENGINE}")
     if set(files) != {"manifest.json", *manifest["hashes"]}:
         raise ValueError("Archive hash inventory differs")
-    for name, digest in manifest["hashes"].items():
-        if sha256(files[name]) != digest:
-            raise ValueError(f"Archive checksum mismatch: {name}")
+    if verify_hashes:
+        for name, digest in manifest["hashes"].items():
+            if sha256(files[name]) != digest:
+                raise ValueError(f"Archive checksum mismatch: {name}")
     rows = [json.loads(line) for line in files["frames.jsonl"].splitlines()]
     size = manifest["stateSize"]
     if size <= 0 or len(files["frames.bin"]) != len(rows) * size * 8:

@@ -85,7 +85,7 @@ def test_missing_resources_isolated_and_html_safe(tmp_path, monkeypatch):
         }
     }
     (run / "meta.json").write_text(json.dumps(meta))
-    monkeypatch.setattr(results, "load_samples", lambda *a, **kw: iter(()))
+    monkeypatch.setattr(results, "load_result_samples", lambda *a, **kw: iter(()))
     output = tmp_path / "out.html"
     result = results.export_results(run, output)
     assert result["samples"] == 2 and result["replays"] == result["ground_truths"] == 0
@@ -113,4 +113,107 @@ def test_lossless_manual_pixels(mode):
     with Image.open(io.BytesIO(payload)) as restored:
         assert restored.size == image.size
         assert restored.convert("RGBA").tobytes() == image.convert("RGBA").tobytes()
-    assert encoded["embedded_sha256"] == results.sha256(payload)
+    assert "embedded_sha256" not in encoded
+
+
+def test_parallel_manual_order_and_isolated_errors(tmp_path):
+    import io
+
+    from PIL import Image
+
+    manual = tmp_path / "manualbook"
+    manual.mkdir()
+    stream = io.BytesIO()
+    Image.new("RGB", (5, 7), "red").save(stream, format="PNG")
+    raw = stream.getvalue()
+    (manual / "page.png").write_bytes(raw)
+    pages = [
+        {"file": "page.png", "sha256": "not-verified"},
+        {"file": "missing.png", "sha256": "missing"},
+        {"file": "page.png", "sha256": "wrong"},
+        {"file": "page.png", "sha256": "not-verified"},
+    ]
+    (manual / "pages.json").write_text(json.dumps({"pages": pages}))
+    errors = []
+    encoded = results.manual_pages(tmp_path, errors)
+    assert [p["file"] for p in encoded] == [p["file"] for p in pages]
+    assert encoded[0] == encoded[3]
+    assert "error" in encoded[1]
+    assert encoded[2]["data"] == encoded[0]["data"]
+    assert "error" not in encoded[2]
+    assert len(errors) == 1
+    assert list(results.parallel_map(results.packed, encoded)) == [
+        results.packed(page) for page in encoded
+    ]
+
+
+def test_result_selection_skips_resource_hashes(row, tmp_path):
+    import zipfile
+
+    sample = prepare_sample(adapt_sample("ikea-manual", row, revision="fixture"))
+    path = export_episode(sample, tmp_path / "initial.zip").path
+    with zipfile.ZipFile(path) as archive:
+        files = {name: archive.read(name) for name in archive.namelist()}
+    manifest = json.loads(files["manifest.json"])
+    manifest["hashes"] = {name: "0" * 64 for name in manifest["hashes"]}
+    files["manifest.json"] = json.dumps(manifest).encode()
+    final = tmp_path / "final.episode.zip"
+    with zipfile.ZipFile(final, "w") as archive:
+        for name, payload in files.items():
+            archive.writestr(name, payload)
+    with pytest.raises(ValueError, match="checksum mismatch"):
+        read_episode(final)
+    episode, provenance, errors = results.select_episode(tmp_path)
+    assert episode and not errors
+    assert provenance == {"path": "final.episode.zip"}
+
+
+@pytest.mark.parametrize("triangle", [False, True])
+def test_direct_mesh_matches_obj_roundtrip(row, triangle):
+    from types import SimpleNamespace
+
+    from assembly_world_agent.episodes import _obj, _render_mesh
+    from assembly_world_agent.models import Mesh
+
+    sample = prepare_sample(adapt_sample("ikea-manual", row, revision="fixture"))
+    parts = sample.parts
+    if triangle:
+        parts = [SimpleNamespace(mesh=Mesh(np.eye(3), ((0, 1, 2),)))]
+    for part in parts:
+        vertices, faces = _render_mesh(part)
+        assert {"vertices": vertices.tolist(), "triangles": faces.ravel().tolist()} == (
+            results.obj_mesh(_obj(part))
+        )
+        assert results.render_geometry(part) == results.obj_mesh(_obj(part))
+
+
+def test_light_ikea_loader_preserves_geometry_without_adapter(row, monkeypatch):
+    import datasets
+
+    revision = "a" * 40
+    expected = prepare_sample(
+        adapt_sample("ikea-manual", row, revision=revision), sample_points=False
+    )
+    cached = datasets.Dataset.from_list([row])
+    calls = []
+
+    def load(*args, **kwargs):
+        calls.append(kwargs)
+        return cached
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("IKEA result export must bypass the full adapter")
+
+    monkeypatch.setattr(datasets, "load_dataset", load)
+    monkeypatch.setattr(results, "load_samples", forbidden)
+    sources = list(
+        results.load_result_samples("ikea-manual", revision=revision, sample_ids=[row["object_id"]])
+    )
+    assert len(sources) == 1
+    assert calls[0]["streaming"] is False and calls[0]["revision"] == revision
+    assert sources[0].manual_pages == () and sources[0].annotations == {}
+    actual = prepare_sample(sources[0], sample_points=False)
+    for a, b in zip(actual.parts, expected.parts):
+        assert results.render_geometry(a) == results.render_geometry(b)
+        assert np.array_equal(a.gt_pose.position, b.gt_pose.position)
+        assert np.array_equal(a.gt_pose.quaternion, b.gt_pose.quaternion)

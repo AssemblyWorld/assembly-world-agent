@@ -19,8 +19,10 @@ from .utils import (
 )
 
 
-def prepare_sample(sample: SourceSample, config: PreparationConfig | None = None) -> AssemblySample:
-    """Return independent task geometry; never modify the HF/source sample."""
+def prepare_sample(
+    sample: SourceSample, config: PreparationConfig | None = None, *, sample_points: bool = True
+) -> AssemblySample:
+    """Prepare task geometry; optionally omit point clouds for geometry-only consumers."""
     config = config or PreparationConfig()
     if not sample.parts or len({p.part_id for p in sample.parts}) != len(sample.parts):
         raise ValueError("Expected nonempty, unique source parts")
@@ -43,28 +45,35 @@ def prepare_sample(sample: SourceSample, config: PreparationConfig | None = None
             sample.source_to_z_up @ rotation_matrix(part.assembled_pose.quaternion) @ basis
         )
         mesh = Mesh(local, part.mesh.faces, normals, part.mesh.face_normal_indices)
-        try:
-            candidates = sample_surface(
-                mesh,
-                config.surface_points,
-                stable_rng(
-                    config.sampling_seed, sample.dataset, sample.sample_id, part.part_id, "surface"
-                ),
-            )
-            selected = farthest_point_sample(
-                candidates,
-                config.fps_points,
-                stable_rng(
-                    config.sampling_seed, sample.dataset, sample.sample_id, part.part_id, "fps"
-                ),
-            )
-        except ValueError as error:
-            raise ValueError(
-                f"{sample.dataset}/{sample.sample_id}/{part.part_id}: {error}"
-            ) from error
+        if sample_points:
+            try:
+                candidates = sample_surface(
+                    mesh,
+                    config.surface_points,
+                    stable_rng(
+                        config.sampling_seed,
+                        sample.dataset,
+                        sample.sample_id,
+                        part.part_id,
+                        "surface",
+                    ),
+                )
+                selected = farthest_point_sample(
+                    candidates,
+                    config.fps_points,
+                    stable_rng(
+                        config.sampling_seed, sample.dataset, sample.sample_id, part.part_id, "fps"
+                    ),
+                )
+            except ValueError as error:
+                raise ValueError(
+                    f"{sample.dataset}/{sample.sample_id}/{part.part_id}: {error}"
+                ) from error
+            clouds[part.part_id] = candidates[selected].copy()
+        else:
+            clouds[part.part_id] = np.empty((0, 3), dtype=np.float64)
         meshes[part.part_id] = mesh
         targets[part.part_id] = make_pose(target_center, target_basis)
-        clouds[part.part_id] = candidates[selected].copy()
     initial = place_parts(
         {pid: mesh.vertices for pid, mesh in meshes.items()},
         dataset=sample.dataset,

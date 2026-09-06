@@ -286,14 +286,27 @@ uv run --extra episodes python scripts/export_results.py logs/<run-id> \
 Open the HTML directly in a modern browser (`file://` works). Three.js, orbit
 controls, original manual pages, meshes and recorded poses are embedded; no CDN,
 server or neighboring files are required. Generation loads the experiment's pinned
-HF revision to rebuild GT, using standard HF caches (`HF_HOME` or `--cache-dir`).
+HF revision with `streaming=False` to rebuild GT, using the standard HF cache
+(`HF_HOME` or `--cache-dir`). The first run downloads and prepares the dataset;
+later runs reuse that dataset cache. Each export regenerates the full HTML.
+For pinned IKEA data, export reads geometry directly from Arrow without decoding
+HF manual images, normals or annotations or running the full dataset adapter.
+Other datasets retain their existing adapter paths.
+Result export skips surface/FPS point-cloud sampling; geometry normalization,
+initial placement and GT poses use the same preparation protocol.
 It never executes recorded calls or physics. Re-running replaces only the requested
 HTML atomically; the experiment inputs remain unchanged. Keep exports out of Git.
 
-Manual pages are always embedded as lossless WebP. This preserves every RGBA
-pixel and the original dimensions, verifies the decoded WebP pixels, and retains
-source checksums alongside embedded-image checksums. ICC profiles and EXIF
-metadata are carried over when present. No separate compression command is needed.
+Manual pages are always embedded as lossless WebP, preserving RGBA pixels and
+original dimensions without decoding them again for pixel verification. ICC profiles
+and EXIF metadata are carried over when present. No separate compression command is needed.
+Export skips manual and episode SHA-256 verification and embedded-image hashes;
+archive parsing and structural validation still report unreadable recordings.
+WebP conversion and row compression use up to 16 threads (capped by CPU count) with bounded pending
+work, preserving page and sample order without adding another cache.
+GT-only rows serialize mesh arrays directly; recorded rows reuse episode geometry
+after comparing mesh arrays against the reconstructed task, without generating
+temporary OBJ text or repeating full input validation.
 
 Each row contains a paginated manual, GT viewer, recorded-state viewer and the
 current MCP call with complete arguments and expandable return/error text. Original
@@ -302,7 +315,11 @@ A valid final episode takes precedence over the newest valid checkpoint. Missing
 recordings stay explicitly empty; unavailable resources and rejected archives are
 reported per row. GT meshes must match the recorded baked initial geometry.
 
-Global First/Last buttons pause playback. Loop all/Pause all control every recorded
+The page opens paused at each episode's last call, following its recorded camera.
+Part colors are enabled by default, with matching colors in GT and replay views.
+The global Part colors checkbox switches all parts between distinct colors and neutral gray.
+Episodes without calls show their initial state. Global First/Last buttons pause playback.
+Loop all/Pause all control every recorded
 sample at one second per call. All calls includes queries and failed calls;
 Changes only retains changes to body poses, groups or the recorded camera. Original
 call numbers are preserved. Camera following defaults on; orbiting a replay view
@@ -315,7 +332,7 @@ and decoded when approaching the viewport. Visible views share a single WebGL
 renderer and copy its output into per-view 2D canvases, avoiding WebGL context
 limits. Manual pages use lossless WebP to reduce the single-file size.
 The embedded manifest records the snapshot time, pinned configuration and episode
-checksums. Generation requires the `episodes` extra but no OpenGL context.
+source paths. Generation requires the `episodes` extra but no OpenGL context.
 
 The checked-in `three.bundle.js` contains Three.js **0.180.0** and OrbitControls
 under MIT (`vis/web/THREE-LICENSE.txt`). To rebuild it, use a temporary directory,
