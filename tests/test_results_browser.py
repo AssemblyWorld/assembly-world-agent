@@ -106,9 +106,9 @@ def test_offline_controls(row, tmp_path, monkeypatch):
         assert page.locator(".call").first.inner_text().startswith("bad_call")
         assert page.locator("#follow").is_checked()
         assert page.evaluate("resultViewer.rows[0].follow && !resultViewer.rows[0].playing")
-        assert page.evaluate("resultViewer.rows[0].replay.camera.position.toArray()") == pytest.approx(
-            frame["camera"]["position"]
-        )
+        assert page.evaluate(
+            "resultViewer.rows[0].replay.camera.position.toArray()"
+        ) == pytest.approx(frame["camera"]["position"])
         assert page.evaluate("resultViewer.rows[1].current") == -1
         colors = "resultViewer.rows[0].gt.group.children.map(m => m.material.color.getHex())"
         replay_colors = colors.replace(".gt.", ".replay.")

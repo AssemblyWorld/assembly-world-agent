@@ -50,6 +50,7 @@ class SourceSample:
     manual: Any
     steps: tuple[dict[str, Any], ...]
     annotations: dict[str, Any]
+    source_equivalence: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -96,4 +97,5 @@ class AssemblySample:
     manual: Any
     steps: tuple[dict[str, Any], ...]
     annotations: dict[str, Any]
+    source_equivalence: dict[str, Any] = field(default_factory=dict)
     protocol_version: str = PROTOCOL_VERSION

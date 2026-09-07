@@ -14,8 +14,11 @@ from .models import (
     SourceSample,
 )
 from .preparation import prepare_sample
+from .similarity import SimilarityConfig, resolve_equivalence
 
 __all__ = [
+    "SimilarityConfig",
+    "resolve_equivalence",
     "EpisodeExport",
     "export_episode",
     "PROTOCOL_VERSION",

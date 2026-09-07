@@ -6,6 +6,7 @@ import numpy as np
 
 from ..models import Pose, SourcePart, SourceSample
 from ..utils import make_pose, mesh_from_record
+from .equivalence import parse_source_equivalence
 
 
 def build_sample(
@@ -49,6 +50,7 @@ def build_sample(
     if not isinstance(sample_id, str) or not sample_id or not revision:
         raise ValueError("Sample identity and source revision are required")
     return SourceSample(
+        source_equivalence=parse_source_equivalence(parts, row),
         dataset=dataset,
         sample_id=sample_id,
         revision=revision,

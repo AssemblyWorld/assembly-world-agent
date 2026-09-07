@@ -120,4 +120,5 @@ def prepare_sample(
         manual=deepcopy(sample.manual),
         steps=deepcopy(sample.steps),
         annotations=deepcopy(sample.annotations),
+        source_equivalence=deepcopy(sample.source_equivalence),
     )

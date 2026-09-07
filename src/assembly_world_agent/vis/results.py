@@ -20,12 +20,12 @@ import numpy as np
 from PIL import Image
 
 from ..adapters import get_adapter, ikea_manual
+from ..episode_io import read_episode
 from ..episodes import _render_mesh
 from ..loading import load_samples
 from ..models import Mesh, Pose, PreparationConfig, SourcePart, SourceSample
 from ..preparation import prepare_sample
 from ..utils.geometry import triangulate
-from .replay import read_episode
 
 WEB = Path(__file__).parent / "web"
 ENCODING_WORKERS = min(16, os.cpu_count() or 1)

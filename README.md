@@ -235,6 +235,27 @@ This does not claim external MCP client connectivity. Native/WASM saved-state
 restoration is exact; cross-backend action reexecution uses `atol=1e-9, rtol=1e-7`.
 Native screenshot checks validate PNG integrity, not rendering or pixel parity.
 
+## Browser-agent batch experiments
+
+`assembly_world_agent.batch_experiment` organizes one parent experiment with a
+separate `samples/<sample-id>/` directory per independent browser agent. It records
+the exact prompt, pinned input identity, progress, full runtime archives, exportable
+agent traces, final reports and MP4 render metadata. Archive ingestion checks the
+sample identity and payload hashes and refuses conflicting final replacements.
+Reported completion and connection inspection are agent claims, not GT scores.
+
+Manual page copies are opt-in experiment inputs: use `prepare_manuals(run)` only
+with explicit authorization to retain original manual pages in that experiment.
+It preserves the pinned source page order and image bytes without retaining GT or
+source assembly annotations. A user-authorized external loopback resource server
+may supply initial archive and manual URLs to the online environment. The agent
+runtime, browser tools and episode contract remain owned by 3DWebAgent.
+
+`export_trace` retains available task messages, tool calls/results and usage from
+a sample's own session log, excluding private reasoning and system instructions.
+`render_sample` validates and renders the saved final archive in the same parent
+experiment and checks that FFmpeg can decode the resulting MP4.
+
 ## MP4 and GIF replay
 
 Render an existing initial or recorded episode without loading HF data or executing
@@ -346,3 +367,123 @@ window.ResultThree = { THREE, OrbitControls };
 
 Run esbuild with `--bundle --minify --format=iife` and write its output to
 `vis/web/three.bundle.js`; no Node installation is needed to generate reports.
+
+## Offline assembly evaluation
+
+```bash
+uv run --extra episodes scripts/evaluate_run.py logs/<run-id>
+# Optional writable or existing Hugging Face dataset cache:
+uv run --extra episodes scripts/evaluate_run.py logs/<run-id> --cache-dir /path/to/cache
+```
+
+The public Python entry point is `assembly_world_agent.evaluation.evaluate_run(run,
+*, cache_dir=None, similarity=None)`. All configured samples are scored, including
+agent-reported partial outcomes. At most four independent worker processes evaluate samples;
+output rows always follow sorted sample IDs. Python scripts calling `evaluate_run`
+should use an `if __name__ == "__main__"` guard for multiprocessing.
+The evaluator reads `meta.json`, sample `input.json`, and
+`final.episode.zip`; it does not require checkpoints, browser exports, a running
+server, a display, or the original preparation directory. Pinned HF data rebuilds
+GT and deterministic 4096-candidate/1000-FPS surface points in memory. No GT or
+point-cloud artifacts are written to the experiment.
+
+Protocol `assembly-evaluation-v2` follows Manual-PA's metric formulas at commit
+`df784cae8ee8ae512436f9e762e99aec47036b9a`: bidirectional mean squared Chamfer
+(summed directions), whole-shape SCD multiplied by 1000, PA as the fraction of
+parts with Chamfer <= 0.01, and SR as whether every part passes. Aggregate all
+three by sample macro mean. PA and SR use fractions, not percentages.
+
+Evaluation divides both predicted and GT coordinates by the same largest
+per-part vertex-PCA AABB diagonal, making that diagonal one. This converts the
+task's radius-based scale without modifying recorded states or fitting scale to
+predictions. One shared proper rigid transform minimizes whole-shape Chamfer
+using 24 PCA axis starts and same-ID part-pose starts. Bidirectional nearest
+neighbors and Kabsch refine each start for up to 100 iterations (improvement
+threshold 1e-9); the best encountered objective wins, with stable first-candidate
+ties. This is approximate multistart registration, not guaranteed global search.
+During assembly scoring, no per-part alignment, reflection, scaling, tool execution
+or simulation steps are allowed. MuJoCo restores the final logical state (initial
+for a setup-only episode); groups are not applied again to the recorded body poses.
+
+After alignment, Hungarian assignment uses unclipped part Chamfer costs within
+configured equivalence groups. Adapters translate source atomic annotations into
+actual part IDs; shared data processing resolves groups on demand. Metrics never
+interpret dataset-specific equivalence syntax.
+
+`SimilarityConfig(policy="geometry", threshold=1e-4)` is independent of task
+preparation and episode identity. `resolve_equivalence(prepared_sample, config=...)`
+returns stable ID groups and diagnostics. Two policies are supported:
+
+- `geometry` (default): compare the prepared 1000-point input clouds using the same
+  shared furniture scale. Each pair uses 24 proper PCA starts and symmetric rigid
+  ICP (100 iterations, improvement tolerance 1e-9), without GT pose starts, scale
+  fitting or reflections. Use raw bidirectional squared CD <= 0.0001 (SCD <= 0.1)
+  as an edge, then take connected components. Groups may contain pairs above the
+  threshold through transitive closure; per-group maxima and such pairs are recorded.
+- `source`: use only source `geometric_equivalence_relation` annotations mapped
+  through annotation IDs. Missing annotations yield singleton groups and an explicit
+  missing flag. Composite self-relations such as `"0,2,3": ["0,2,3"]` do not make
+  their constituent parts interchangeable. Unknown references, malformed relations
+  and nontrivial composite equivalences are errors. Original annotations are retained
+  in memory. No geometric fallback or union is applied.
+
+Pair registration discovers shape equivalence only: its transforms never alter the
+predicted assembly. The assembly PA threshold remains 0.01. Smaller parts contribute
+smaller absolute errors under the common furniture scale. The geometry threshold is
+configurable, not selected to maximize predicted scores. Sampling, free-space alignment
+and group construction differ from Manual-PA; this is not exact paper reproduction or
+physical stability validation.
+
+```bash
+uv run --extra episodes scripts/evaluate_run.py <run> --similarity-policy geometry --similarity-threshold 0.0001
+uv run --extra episodes scripts/evaluate_run.py <run> --similarity-policy source
+```
+
+Python callers pass `similarity=SimilarityConfig(...)` to `evaluate_run`. The threshold
+CLI option is geometry-only. Only the current policy's two output files are retained;
+switching policies replaces them, rather than creating parallel score files.
+
+Outputs are atomically replaced on every invocation:
+
+- `metrics.jsonl`: one row per expected sample, SCD/PA/SR, part errors and matching,
+  fixed scale divisor, shared alignment and candidate diagnostics, final episode
+  SHA-256, source revision, protocol version, similarity configuration and group diagnostics.
+- `metrics_summary.json`: sample macro averages, expected/scored/error counts,
+  explicit scored-sample denominator, errors and full protocol/input identity.
+
+Existing scheduler `metrics.json`, episodes, reports and traces remain unchanged.
+A missing/corrupt episode or mismatched identity/geometry produces a row with
+`status="error"`, null scores and an error message. Other samples continue. The
+summary is `incomplete` and the CLI exits with status 1 if any sample fails; no
+failed sample is silently omitted from the expected count. With zero scored
+samples the averages are null. A complete run exits with status 0.
+
+### Interactive metric inspection
+
+`notebooks/inspect_metrics.ipynb` is a read-only, step-by-step inspection notebook.
+Install its optional environment with `uv sync --extra episodes --group inspection`
+and select `.venv/bin/python` as the notebook kernel. Set `LOG` and `SAMPLE_ID` in
+the first cell, then Run All. Optional globals select an HF cache, an individual
+part, a diagnostic alignment candidate, `SIMILARITY_POLICY`, `SIMILARITY_THRESHOLD`,
+and `SIMILARITY_PAIR`. `COMPARE_RUN` enables the full-run read-only comparison.
+
+The notebook imports the evaluator's shared input reconstruction, alignment and
+metric functions. It displays actual meshes before/after alignment, directional
+SCD distances, source equivalence annotations, the complete part cost matrix and
+allowed Hungarian assignments, per-part threshold checks, and a selected pair's
+nearest neighbors. Candidate transforms are optionally returned by `align` for
+inspection; the default evaluator and its selection objective remain unchanged.
+
+The notebook also displays source/geometry groups, aligned input-pair CD matrices,
+threshold edges, transitive-closure diagnostics, and pair clouds before/after rigid
+registration with shared axes and relative size preserved. Both assignment policies
+are compared at the same global transform. Unrestricted matching and alternative
+alignment candidates remain explicitly labeled counterfactual diagnostics.
+
+`compare_run` reconstructs all saved samples at the persisted geometry alignments,
+validates hashes and recalculates both policies without writing files. It displays
+sample means, changes, group diagnostics and errors in the notebook. Run the current
+geometry evaluator first; this comparison requires its persisted groups and transforms.
+Clear notebook outputs before saving/sharing: reconstructed GT stays in memory,
+not in the committed notebook. Existing metric and episode hashes are checked after
+execution.
