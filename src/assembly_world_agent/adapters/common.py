@@ -1,4 +1,4 @@
-"""Source record conversion shared by the four thin dataset adapters."""
+"""Source record conversion shared by the thin dataset adapters."""
 
 from copy import deepcopy
 

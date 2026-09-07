@@ -39,6 +39,40 @@ def row():
 
 
 @pytest.fixture
+def fantastic_row(row):
+    value = deepcopy(row)
+    value.pop("sample_id")
+    value["object_id"] = "00/00002"
+    value["source_splits"] = []
+    value["steps"] = []
+    for part, role in zip(value["parts"], ("broken", "synthetic_repair")):
+        part.pop("annotation_part_id", None)
+        part.pop("face_normal_indices", None)
+        part["part_id"] = "model_b_0" if role == "broken" else "model_r_0"
+        part["role"] = role
+        part["source_file"] = f"00/00002/{role}.ply"
+        part["vertex_colors"] = (
+            [[10, 20, 30, 255]] * len(part["vertices"]) if role == "broken" else []
+        )
+        part["ply_header"] = "ply\nformat binary_little_endian 1.0\nend_header\n"
+    value["complete_reference"] = deepcopy(value["parts"][0])
+    value["complete_reference"]["role"] = "complete_reference"
+    value["complete_reference"]["vertices"] = (
+        np.asarray(value["parts"][0]["vertices"]) * 100 + 200
+    ).tolist()
+    value["annotation"] = {
+        "mask": [True, False] * 4,
+        "mask_dtype": "bool",
+        "mask_shape": [8],
+        "mask_mesh_role": "broken",
+        "transform": [[0, -1, 0, 99], [1, 0, 0, 88], [0, 0, 1, 77], [0, 0, 0, 1]],
+        "transform_dtype": "float64",
+        "transform_shape": [4, 4],
+    }
+    return value
+
+
+@pytest.fixture
 def assemblybench_row(row):
     value = deepcopy(row)
     value["poses"] = {

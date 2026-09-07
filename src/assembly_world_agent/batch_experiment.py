@@ -130,7 +130,7 @@ def prepare_manuals(run):
     meta = json.loads((run / "meta.json").read_text())
     identity = meta["config"]["identity"]
     rows = load_dataset(
-        identity["dataset"], revision=identity["revision"], split="full", streaming=True
+        identity["dataset"], revision=identity["revision"], split="full", streaming=False
     )
     features = rows.features.copy()
     features["manual_pages"].feature["image"] = Image(decode=False)

@@ -17,7 +17,7 @@ def load_samples(
     dataset: str,
     *,
     revision: str | None = None,
-    streaming: bool = True,
+    streaming: bool = False,
     sample_ids: Sequence[str] | None = None,
     limit: int | None = None,
     cache_dir: str | Path | None = None,
@@ -26,9 +26,11 @@ def load_samples(
     """Yield source samples from the single stored `full` split.
 
     Default revisions are pinned releases. Branch/tag overrides resolve to a SHA
-    once before loading. Streaming is the default to avoid full-release downloads;
-    selecting late IDs may still scan preceding records. Source split memberships
-    remain annotations and are never treated as mutually exclusive HF splits.
+    once before loading. The default prepares the full split in the HF cache;
+    selection and limit only bound subsequent adaptation. Explicit streaming can
+    avoid full-release preparation but may scan earlier rows to select late IDs.
+    Source split memberships remain annotations and are never treated as mutually
+    exclusive HF splits.
     """
     adapter = get_adapter(dataset)
     if limit is not None and (
@@ -54,6 +56,7 @@ def load_samples(
         streaming=streaming,
         cache_dir=None if cache_dir is None else str(cache_dir),
         token=token,
+        **({} if streaming else getattr(adapter, "LOAD_KWARGS", {})),
     )
     found = set()
     emitted = 0

@@ -18,7 +18,7 @@ def test_pinned_loading_is_bounded_and_does_not_resolve_network(monkeypatch, row
     expected = get_adapter("ikea-manual").DEFAULT_REVISION
     assert result[0].revision == expected
     assert mock.call_args.kwargs == dict(
-        split="full", revision=expected, streaming=True, cache_dir="cache", token=None
+        split="full", revision=expected, streaming=False, cache_dir="cache", token=None
     )
 
 
@@ -63,7 +63,7 @@ def test_partial_stream_is_closed(monkeypatch, row, stop):
     if stop == "error":
         row["parts"] = []
     monkeypatch.setattr(loading, "load_dataset", Mock(side_effect=rows))
-    samples = load_samples("ikea-manual", limit=1)
+    samples = load_samples("ikea-manual", limit=1, streaming=True)
     if stop == "limit":
         assert len(list(samples)) == 1
     elif stop == "close":

@@ -1,10 +1,10 @@
 """Explicit source registry; no plugin discovery or cross-repository imports."""
 
-from . import assemblybench, breaking_bad, ikea_manual, partnet_manualpa
+from . import assemblybench, breaking_bad, fantastic_breaks, ikea_manual, partnet_manualpa
 
 ADAPTERS = {
     adapter.REPO_ID: adapter
-    for adapter in (ikea_manual, partnet_manualpa, breaking_bad, assemblybench)
+    for adapter in (ikea_manual, partnet_manualpa, breaking_bad, assemblybench, fantastic_breaks)
 }
 
 

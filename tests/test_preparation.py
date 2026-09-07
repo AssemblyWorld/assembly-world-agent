@@ -10,7 +10,13 @@ from assembly_world_agent.utils import apply_pose, rotation_matrix, separated, t
 
 @pytest.mark.parametrize(
     "dataset",
-    ["ikea-manual", "partnet-manualpa", "breaking-bad-volume-constrained", "assemblybench"],
+    [
+        "ikea-manual",
+        "partnet-manualpa",
+        "breaking-bad-volume-constrained",
+        "assemblybench",
+        "fantastic-breaks",
+    ],
 )
 def test_world_and_inverse_reconstruction(dataset, row, assemblybench_row):
     raw = assemblybench_row if dataset == "assemblybench" else row

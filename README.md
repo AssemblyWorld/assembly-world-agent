@@ -54,8 +54,13 @@ gt_points = apply_pose(part.points, part.gt_pose)
 ```
 
 `load_samples` accepts a short dataset name or full Hub ID, `revision`, `limit`,
-`sample_ids`, `streaming` and `cache_dir`. Streaming defaults to true. ID selection
-may scan earlier rows, but only selected samples are prepared. The actual resolved
+`sample_ids`, `streaming` and `cache_dir`. Streaming defaults to **false** for every
+dataset: the first load downloads and prepares the entire `full` split in the HF
+cache; later loads reuse it. `sample_ids` and `limit` bound subsequent adaptation
+and task preparation, not the initial download or Arrow cache preparation.
+Explicit `streaming=True` avoids full-split preparation but may scan earlier rows
+to select late IDs. Fantastic Breaks uses `writer_batch_size=1` for non-streaming
+loads to bound Arrow writer batches for its high-resolution meshes. The actual resolved
 HF commit is retained; defaults are pinned. Explicit branch/tag resolution requires
 Hub access; pinned revisions can use a populated offline HF cache. Standard HF
 cache locations and `HF_HOME` apply; no dataset-local cache is created by default.
@@ -74,9 +79,10 @@ HF rows; the caller supplies the actual source commit.
 | `partnet-manualpa` | Original `objs` in a common shape frame | Y | `e79907b38a868589184063debd9727e59f480cf3` |
 | `breaking-bad-volume-constrained` | Fragments share source coordinates | Z | `aa6c781cdba90b2131ba090457f502e144819953` |
 | `assemblybench` | Apply final view-0 assembled poses to local meshes | Z | `266e883e1676af42c44c41484c77b662b987b966` |
+| `fantastic-breaks` | Broken and synthetic repair meshes share supplied coordinates | Identity convention; physical up unverified | `654d94e30e3cb246a04f97aab1bc4ca9f0ad0af9` |
 
 Protocol `assembly-preparation-v1` is a task preprocessing convention, not an
-official GARF, ManualPA, Breaking Bad or AssemblyBench evaluation reproduction.
+official GARF, ManualPA, Breaking Bad, AssemblyBench or Fantastic Breaks evaluation reproduction.
 
 1. Restore assembly and convert to Z-up. IKEA and PartNet rotate `(x,y,z)` to
    `(x,-z,y)`; others use identity. AssemblyBench requires every final view-0 pose
@@ -125,6 +131,40 @@ source-frame inspections, not per-object PCA guesses. The AssemblyBench
 [pinned card](https://huggingface.co/datasets/AssemblyWorld/assemblybench/blob/266e883e1676af42c44c41484c77b662b987b966/README.md)
 and upstream Blender world-pose export establish the WXYZ assembled-pose convention.
 Source dataset licenses and redistribution rights remain separate from this code.
+
+Fantastic Breaks uses the original `object_id` strings, including leading zeros.
+Its two assembly inputs are the scanned broken mesh and a **synthetic repair**
+proxy, not two independently scanned fragments. The supplied coordinates define
+GT; identity axis conversion is a task convention, not a verified physical up axis.
+The source `annotation.transform` has unverified direction and units and is never
+applied. Original polygons, normals, RGBA vertex colors, PLY headers, source paths,
+hashes and annotations are preserved in memory. Colors remain source metadata;
+they do not change the shared episode rendering contract.
+`complete_reference` remains a separate in-memory annotation: it never contributes
+to task geometry, normalization, point sampling, episode inputs or evaluation GT.
+No source splits, class labels, physical units or dataset license are inferred.
+
+```python
+source = next(load_samples("fantastic-breaks", sample_ids=["00/00002"]))
+sample = prepare_sample(source, PreparationConfig())
+```
+
+### Interactive sample inspection
+
+Open `notebooks/inspect_samples.ipynb` after `uv sync --group inspection` and select
+`.venv/bin/python` as the kernel. Set `DATASET`, `SAMPLE_ID`, `CACHE_DIR` and the
+sampling/initialization seeds, then Run All. The default is Fantastic Breaks;
+`SAMPLE_ID=None` selects the first row after preparing the full split in the cache.
+Every registered adapter is supported, without experiment logs or episode export.
+
+The notebook shows provenance and geometry counts, source assembly, normalized GT,
+initial layout and production point clouds using consistent part colors and
+interactive Plotly views. All mesh vertices are displayed with derived triangulation;
+no input simplification is performed. High-resolution mesh views can take time to render.
+Fantastic Breaks adds a separate reference-only complete mesh view and a literal
+matrix/mask summary. Production functions reconstruct GT and verify the inverse
+mapping back to source coordinates. These are preprocessing checks, not model scores.
+Clear all outputs before saving/sharing; private GT and annotations stay in memory.
 
 ## Initial episodes and configuration directories
 
