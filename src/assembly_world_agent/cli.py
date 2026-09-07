@@ -1,52 +1,85 @@
-"""Bounded IKEA initial episode conversion."""
+"""Explicit dataset selection for initial episode conversion."""
 
 import argparse
-import json
+import sys
 from pathlib import Path
 
-from .artifacts import experiment, read_config, write_task
-from .loading import load_samples
+from .adapters import get_adapter
+from .conversion import convert_dataset
 from .models import PreparationConfig
-from .preparation import prepare_sample
 
 DEFAULT_SAMPLES = ("Bench/applaro", "Chair/reidar", "Table/vittsjo_2")
+
+
+def _positive_integer(value):
+    try:
+        result = int(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("Expected a positive integer") from error
+    if result <= 0:
+        raise argparse.ArgumentTypeError("Expected a positive integer")
+    return result
+
+
+def _dataset(value):
+    try:
+        get_adapter(value)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(str(error)) from error
+    return value
+
+
+def _arguments(parser, *, generic):
+    selection = parser.add_mutually_exclusive_group(required=generic)
+    selection.add_argument("--sample-id", action="append")
+    if generic:
+        selection.add_argument(
+            "--limit", type=_positive_integer, help="Convert the first N samples"
+        )
+    selection.add_argument("--all", action="store_true", help="Convert the entire pinned release")
+    parser.add_argument("--sampling-seed", type=int, default=0)
+    parser.add_argument("--initialization-seed", type=int, default=0)
+    parser.add_argument("--revision")
+    parser.add_argument("--cache-dir", type=Path)
+    parser.add_argument("--output", type=Path, default=Path("data"))
+    parser.add_argument("--logs", type=Path, default=Path("logs"))
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    convert = commands.add_parser("convert-ikea", help="Convert the three pilot samples by default")
-    selection = convert.add_mutually_exclusive_group()
-    selection.add_argument("--sample-id", action="append")
-    selection.add_argument(
-        "--all", action="store_true", help="Explicitly convert the entire IKEA release"
+    convert = commands.add_parser("convert", help="Convert an explicit dataset selection")
+    convert.add_argument("dataset", type=_dataset, help="Registered short name or full Hub ID")
+    _arguments(convert, generic=True)
+    convert.add_argument("--model-format", choices=("xml", "mjb"), default="xml")
+    ikea = commands.add_parser(
+        "convert-ikea", help="Convert the three IKEA pilot samples by default"
     )
-    convert.add_argument("--sampling-seed", type=int, default=0)
-    convert.add_argument("--initialization-seed", type=int, default=0)
-    convert.add_argument("--revision")
-    convert.add_argument("--cache-dir", type=Path)
-    convert.add_argument("--output", type=Path, default=Path("data"))
-    convert.add_argument("--logs", type=Path, default=Path("logs"))
+    _arguments(ikea, generic=False)
     args = parser.parse_args(argv)
-    config = PreparationConfig(
-        sampling_seed=args.sampling_seed, initialization_seed=args.initialization_seed
-    )
-    selected = None if args.all else args.sample_id or DEFAULT_SAMPLES
-    with experiment(
-        "conversion",
-        logs=args.logs,
-        inputs=dict(dataset="ikea-manual", revision=args.revision, sample_ids=selected),
-    ) as (directory, meta, metrics):
-        metrics["samples"] = []
-        for source in load_samples(
-            "ikea-manual", revision=args.revision, sample_ids=selected, cache_dir=args.cache_dir
-        ):
-            task = write_task(prepare_sample(source, config), args.output)
-            metrics["samples"].append(task)
-            meta.setdefault("configurations", {})[task["config_directory"]] = read_config(
-                task["config_directory"]
-            )["identity"]
-            print(json.dumps(task), flush=True)
-        meta["config_directories"] = sorted({row["config_directory"] for row in metrics["samples"]})
-    print(f"Log: {directory}", flush=True)
+    try:
+        config = PreparationConfig(
+            sampling_seed=args.sampling_seed, initialization_seed=args.initialization_seed
+        )
+    except ValueError as error:
+        parser.error(str(error))
+    selected = args.sample_id
+    if args.command == "convert-ikea" and not args.all and selected is None:
+        selected = DEFAULT_SAMPLES
+    try:
+        convert_dataset(
+            args.dataset if args.command == "convert" else "ikea-manual",
+            sample_ids=selected,
+            limit=getattr(args, "limit", None),
+            all_samples=args.all,
+            preparation=config,
+            revision=args.revision,
+            cache_dir=args.cache_dir,
+            output=args.output,
+            logs=args.logs,
+            model_format=getattr(args, "model_format", "xml"),
+        )
+    except Exception as error:
+        print(f"Conversion failed: {error}", file=sys.stderr, flush=True)
+        return 1
     return 0

@@ -16,6 +16,7 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from ..episode_io import read_episode
+from ..episode_model import load_model
 from ..episodes import ENGINE, sha256
 
 WIDTH, HEIGHT = 1600, 900
@@ -142,15 +143,7 @@ class StateRenderer:
         if mujoco.__version__ != ENGINE:
             raise ValueError(f"Expected MuJoCo {ENGINE}")
         self.mj = mujoco
-        files = episode["files"]
-        self.model = mujoco.MjModel.from_xml_string(
-            files["world/model.xml"].decode(),
-            assets={
-                k[6:]: v
-                for k, v in files.items()
-                if k.startswith("world/") and k != "world/model.xml"
-            },
-        )
+        self.model = load_model(episode)
         self.model.vis.headlight.ambient[:] = [0.55, 0.55, 0.55]
         self.model.vis.headlight.diffuse[:] = [0.65, 0.65, 0.65]
         self.model.vis.headlight.specular[:] = [0.15, 0.15, 0.15]

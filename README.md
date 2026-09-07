@@ -170,14 +170,45 @@ Clear all outputs before saving/sharing; private GT and annotations stay in memo
 
 ```sh
 uv sync --locked --extra episodes
-uv run --extra episodes python scripts/convert_ikea.py
-uv run --extra episodes assembly-world-agent convert-ikea \
-  --sample-id Bench/applaro --sample-id Chair/reidar \
-  --sampling-seed 0 --initialization-seed 0 --output data --logs logs
+uv run --extra episodes assembly-world-agent convert fantastic-breaks \
+  --sample-id 00/00002 --sample-id 00/00003 --sample-id 00/00005
+uv run --extra episodes python scripts/convert.py assemblybench --limit 3
+# Full conversion must be explicitly requested:
+uv run --extra episodes assembly-world-agent convert fantastic-breaks --all
 ```
 
-Only the three pilot IDs in the layout example are selected by default. Full
-conversion requires `--all`. `--revision` and `--cache-dir` remain available.
+`convert <dataset>` accepts any registered short name or full Hub ID. Exactly one
+selection is required: repeated `--sample-id`, a positive integer `--limit`, or
+`--all`. Omitting selection or combining selection modes is a command-line error
+before loading. IDs are preserved as strings. ID selections follow source row
+order; `--limit` converts the first N rows. Missing requested IDs fail at exhaustion.
+Loading is non-streaming and uses the standard HF cache; selection does not limit
+first-load download/cache preparation. The default dataset revision is pinned;
+`--revision` overrides it. `--cache-dir`, `--sampling-seed` and
+`--initialization-seed` remain available; other preparation defaults are unchanged.
+
+The compatibility command `convert-ikea` and `scripts/convert_ikea.py` retain their
+existing arguments and the three default IKEA pilot IDs. They call the same
+conversion workflow; their full conversion still requires `--all`.
+
+```python
+from assembly_world_agent.conversion import convert_dataset
+
+summary = convert_dataset("fantastic-breaks", sample_ids=["00/00002", "00/00003", "00/00005"])
+# summary: config_directories, converted_count, log_directory
+```
+
+The Python API also requires exactly one of `sample_ids`, `limit` or
+`all_samples=True`. Pass a `PreparationConfig` through `preparation` when needed.
+The workflow processes samples serially and prints each completed archive record.
+Progress is saved after every sample. The final summary includes configuration
+paths, the completed count and the log location. On failure, conversion stops,
+keeps successful archives, records the error and the sample ID when available,
+and the CLI returns a nonzero status. Loader errors retain their source context
+in the error message rather than being attributed to the previous successful ID.
+Exceptions propagate from the Python API. Re-running regenerates and verifies
+archives before reuse; it is not a fast skip-existing resume operation.
+
 `--output` is the **data root**, not a single configuration directory. Configuration
 IDs have a readable protocol/seed prefix and a digest of resolved revision,
 preprocessing parameters and producer identity. A configuration contains initial
@@ -200,12 +231,57 @@ are disabled; force and simulation tools are disabled. Query, pose, grouping,
 capture, camera and lifecycle tools remain enabled. The initial camera fits the
 complete layout.
 
-Each ZIP contains `manifest.json`, one initial row in `frames.jsonl`, native
+By default, each ZIP contains `manifest.json`, one initial row in `frames.jsonl`, native
 `mjSTATE_INTEGRATION` as little-endian Float64 in `frames.bin`, empty `calls.jsonl`
 and `events.jsonl`, plus `world/model.xml` and meshes. Lifecycle is `setup`, with
 empty groups and no history. Stable ordering, fixed ZIP metadata and payload hashes
 make identical exports byte reproducible. Import through 3DWebAgent's **Episode
 file** control. Manuals, GT and evaluation resources never enter initial episodes.
+
+### Optional MJB conversion for high-resolution meshes
+
+XML remains the default for every dataset and for `convert-ikea`. To move model
+compilation to the native conversion stage, explicitly select MJB:
+
+```bash
+uv run --extra episodes assembly-world-agent convert fantastic-breaks \
+  --model-format mjb \
+  --sample-id 00/00002 --sample-id 00/00003 --sample-id 00/00005
+```
+
+MJB is an optional episode **v1** extension, declared as
+`model: {"format":"mjb","path":"model.mjb"}` in the manifest. It preserves the
+full compiled geometry and stores only `world/model.mjb` as the model asset.
+Initial state comes from that same native MuJoCo 3.12.0 model. Source XML/OBJ,
+GT, reference geometry and annotations are not added to the archive. Source data
+remains reconstructible from the pinned HF revision. Standard non-streaming HF
+cache behavior and selection/download semantics are unchanged.
+
+The extended v1 schema is pinned separately under `contracts/mjb`, with its exact
+hash and upstream commit provenance. The original XML schema and producer
+remain unchanged. Format-specific configuration identity keeps MJB and XML
+outputs in separate directories. Repeated identical conversions reuse files;
+different bytes are never silently overwritten.
+
+MJB requires the updated independent 3DWebAgent runtime and MuJoCo 3.12.0; older
+XML-only runtimes cannot load it. Poses, grouping, queries, cameras, capture,
+export and replay remain available. MJB has fixed parts, so adding/deleting
+objects and editing model properties are unavailable. XML editing is unchanged.
+
+The original Fantastic Breaks XML pilot `00/00002` exceeded the 2 GiB WASM heap
+limit during mesh compilation in 3DWebAgent commit
+`adfe1d9958711dd2b8fcac2df2e75e06aea0beba`. MJB avoids that compilation stage;
+it does not reduce mesh resolution and may be larger than the source assets.
+Use the MJB-capable local checkout for validation before browser experiments;
+this change does not deploy the public site.
+
+The three MJB pilots (`00/00002`, `00/00003`, `00/00005`) passed native geometry,
+pinned-source GT reconstruction and exact initial-state restoration, plus WASM
+loading of all three archives. Repeated conversion retained identical hashes.
+The first pilot also passed local browser rendering, capture, pose/group changes,
+export/reimport, history inspection and two repeated imports. Browser export
+retained the original MJB bytes. These checks establish loading and replay
+compatibility, not assembly success or physical stability.
 
 ## On-demand resources and experiments
 

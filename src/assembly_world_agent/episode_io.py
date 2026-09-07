@@ -67,9 +67,16 @@ def read_episode(path, *, verify_hashes=True):
     )
     import jsonschema
 
-    jsonschema.validate(
-        logical, json.loads((CONTRACT_DIRECTORY / "episode.schema.json").read_text())
-    )
+    directory = CONTRACT_DIRECTORY
+    if "model" in manifest:
+        from .mjb import CONTRACT_DIRECTORY as directory
+        from .mjb import mjb_provenance
+
+        mjb_provenance()
+    jsonschema.validate(logical, json.loads((directory / "episode.schema.json").read_text()))
+    model_path = manifest.get("model", {}).get("path", "model.xml")
+    if "world/" + model_path not in files:
+        raise ValueError("Missing episode model")
     snapshots[0] = initial[0]
     for call in calls:
         if call["state_index"] not in snapshots or call["before_index"] not in snapshots:

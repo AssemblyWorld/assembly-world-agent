@@ -109,7 +109,7 @@ def test_cli_routes_reports_to_logs(row, tmp_path, monkeypatch):
         assert dataset == "ikea-manual" and kwargs["sample_ids"] == DEFAULT_SAMPLES
         yield source
 
-    monkeypatch.setattr("assembly_world_agent.cli.load_samples", fake_load)
+    monkeypatch.setattr("assembly_world_agent.conversion.load_samples", fake_load)
     data, logs = tmp_path / "data", tmp_path / "logs"
     assert main(["convert-ikea", "--output", str(data), "--logs", str(logs)]) == 0
     assert len(list(data.rglob("*.episode.zip"))) == 1

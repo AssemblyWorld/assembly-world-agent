@@ -163,27 +163,31 @@ def episode_data(ep):
     import mujoco as mj
 
     files = ep["files"]
-    root = ET.fromstring(files["world/model.xml"])
-    assets = {e.attrib["name"]: e.attrib["file"] for e in root.findall("./asset/mesh")}
-    parts = []
-    for body in root.findall("./worldbody/body"):
-        geoms = body.findall("geom")
-        if len(geoms) != 1 or body.findall("body"):
-            raise ValueError("Result viewer requires one mesh per independent assembly body")
-        geom = geoms[0]
-        if any(k in geom.attrib for k in ("pos", "quat", "euler", "axisangle")):
-            raise ValueError("Unsupported local geom transform")
-        mesh_name = geom.attrib["mesh"]
-        resource = "world/" + assets[mesh_name]
-        parts.append(
-            {"id": body.attrib["name"], "resource": resource, "geometry": obj_mesh(files[resource])}
-        )
-    model = mj.MjModel.from_xml_string(
-        files["world/model.xml"].decode(),
-        assets={
-            k[6:]: v for k, v in files.items() if k.startswith("world/") and k != "world/model.xml"
-        },
-    )
+    from ..episode_model import compiled_parts, load_model
+
+    model = load_model(ep)
+    if ep["manifest"].get("model"):
+        parts = compiled_parts(model, ep["manifest"]["objects"])
+    else:
+        root = ET.fromstring(files["world/model.xml"])
+        assets = {e.attrib["name"]: e.attrib["file"] for e in root.findall("./asset/mesh")}
+        parts = []
+        for body in root.findall("./worldbody/body"):
+            geoms = body.findall("geom")
+            if len(geoms) != 1 or body.findall("body"):
+                raise ValueError("Result viewer requires one mesh per independent assembly body")
+            geom = geoms[0]
+            if any(k in geom.attrib for k in ("pos", "quat", "euler", "axisangle")):
+                raise ValueError("Unsupported local geom transform")
+            mesh_name = geom.attrib["mesh"]
+            resource = "world/" + assets[mesh_name]
+            parts.append(
+                {
+                    "id": body.attrib["name"],
+                    "resource": resource,
+                    "geometry": obj_mesh(files[resource]),
+                }
+            )
     data = mj.MjData(model)
     body_ids = [mj.mj_name2id(model, mj.mjtObj.mjOBJ_BODY, p["id"]) for p in parts]
     frames = {}

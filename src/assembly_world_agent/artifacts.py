@@ -71,6 +71,8 @@ def read_config(directory):
         if (
             manifest["id"] != entry["episode_id"]
             or manifest["producer"] != value["identity"]["producer"]
+            or manifest.get("model", {}).get("format", "xml")
+            != value["identity"].get("model_format", "xml")
         ):
             raise ValueError("Episode identity differs from config")
     return value
@@ -95,6 +97,8 @@ def register_archive(archive, output, *, dataset, revision, protocol, preparatio
         contract=manifest["contract"],
         engine=manifest["engine"],
     )
+    if manifest.get("model"):
+        identity["model_format"] = manifest["model"]["format"]
     slug = dataset.split("/")[-1]
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", slug):
         raise ValueError("Invalid dataset directory")
@@ -144,10 +148,17 @@ def save_archive(archive, output, *, sample_id, dataset, revision, protocol, pre
     return dict(config_directory=str(directory), sample_id=sample_id, **entry)
 
 
-def write_task(sample, output=Path("data")):
+def write_task(sample, output=Path("data"), *, model_format="xml"):
     """Persist an initial episode and provenance only; source/GT stay in memory."""
+    if model_format not in ("xml", "mjb"):
+        raise ValueError("Unsupported model format")
+    exporter = export_episode
+    if model_format == "mjb":
+        from .mjb import export_mjb_episode
+
+        exporter = export_mjb_episode
     with tempfile.TemporaryDirectory(prefix="awa-export-") as temporary:
-        result = export_episode(sample, Path(temporary) / "initial.zip")
+        result = exporter(sample, Path(temporary) / "initial.zip")
         return save_archive(
             result.path,
             output,
