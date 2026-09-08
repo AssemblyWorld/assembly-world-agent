@@ -30,6 +30,13 @@ Use separate experiment directories for GT-driven fixtures. Do not invent metric
 that were not computed. Centralize artifact and run organization in the package;
 Python scripts and CLI entrypoints only orchestrate workflows.
 
+After smoke tests and development validation finish, remove their temporary log
+directories, screenshots, exported runtime episodes, helper scripts and other
+test artifacts, including failed attempts. Retain them only when deliberately
+prepared for the user to inspect, and identify those retained artifacts in the
+handoff. Preserve reusable prepared episodes, shared dataset caches and actual
+experiment results; do not delete artifacts belonging to unrelated work.
+
 Use uv in this independent project with its own lockfile. Keep `scripts/` Python-only,
 retain offline tests, and put all maintained documentation in README.md. Do not add
 `docs/`. Ignore data, logs, caches, environments and build outputs in Git. Complete

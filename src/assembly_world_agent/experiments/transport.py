@@ -157,11 +157,15 @@ async def serve(configuration):
                         if type(page) is not int or not 1 <= page <= len(config["manual"]):
                             raise ValueError("Manual page is out of range")
                         data = Path(config["manual"][page - 1]).read_bytes()
+                        from PIL import Image
+
+                        with Image.open(config["manual"][page - 1]) as picture:
+                            mime_type = Image.MIME[picture.format]
                         result = {
                             "content": [
                                 {
                                     "type": "image",
-                                    "mimeType": "image/png",
+                                    "mimeType": mime_type,
                                     "data": base64.b64encode(data).decode(),
                                 }
                             ]

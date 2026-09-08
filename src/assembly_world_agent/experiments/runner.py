@@ -9,11 +9,11 @@ import time
 import uuid
 from pathlib import Path
 
-from ..adapters import get_adapter
+from ..adapters import REFERENCE_MODES, get_adapter, reference_pages
 from ..artifacts import now, read_config, sample_name, write_json
 from ..episode_io import read_episode
 from ..episodes import sha256
-from .agents import run_agent
+from .agents import prompt_content, run_agent
 from .browser import DEFAULT_ENVIRONMENT, Browser, doctor
 from .serving import EpisodeServer
 from .transport import append
@@ -35,6 +35,11 @@ The scheduler will export the full episode after your final answer; do not expor
 or write files yourself. End with a JSON object containing status (completed,
 partial or unable), summary, checked_connections and uncertainties.
 """
+REFERENCE_PROTOCOL = PROTOCOL.replace(
+    "Manual pages: {manual_count}. Read them with read_manual_page (one-based page).",
+    "Reference images, if supplied, are attached in page order. You may reread only\n"
+    "these images with read_manual_page (one-based page).",
+)
 
 
 def read_json(path):
@@ -143,6 +148,12 @@ def manual_pages(inputs, meta, root):
     from PIL import Image
 
     pages = []
+    mode = meta["options"].get("reference_mode")
+    if mode is not None and mode not in REFERENCE_MODES:
+        raise ValueError(f"Unsupported reference mode: {mode}")
+    if mode == "none":
+        inputs["manual"] = {"source": None, "reference_mode": mode, "pages": []}
+        return []
     explicit = meta["options"].get("manual")
     if explicit:
         directory = Path(explicit)
@@ -152,6 +163,9 @@ def manual_pages(inputs, meta, root):
         if not sources:
             raise ValueError("Manual directory contains no supported images")
         provenance = {"source": str(directory.resolve())}
+        if mode == "final-image":
+            sources = sources[:1]
+        selected = [{"source_file": p.name} for p in sources]
     elif meta.get("config"):
         from datasets import Image as HFImage
         from datasets import load_dataset
@@ -166,9 +180,14 @@ def manual_pages(inputs, meta, root):
         )
         provenance = {"dataset": adapter.REPO_ID, "revision": identity["revision"]}
         if "manual_pages" not in rows.column_names:
+            if mode is not None:
+                raise ValueError("Pinned dataset has no reference images")
             inputs["manual"] = {**provenance, "pages": []}
             return []
-        rows = rows.select_columns([adapter.SAMPLE_ID_FIELD, "manual_pages"])
+        columns = [adapter.SAMPLE_ID_FIELD, "manual_pages"]
+        if mode is not None:
+            columns.extend(getattr(adapter, "REFERENCE_COLUMNS", ()))
+        rows = rows.select_columns(columns)
         features = rows.features.copy()
         features["manual_pages"].feature["image"] = HFImage(decode=False)
         rows = rows.cast(features)
@@ -177,8 +196,13 @@ def manual_pages(inputs, meta, root):
         )
         if found is None:
             raise ValueError("Sample missing from pinned manual source")
-        sources = [p["image"] for p in found["manual_pages"]]
+        selected = (
+            found["manual_pages"] if mode is None else reference_pages(adapter.REPO_ID, found, mode)
+        )
+        sources = [p["image"] for p in selected]
     else:
+        if mode is not None:
+            raise ValueError("Reference images require pinned dataset provenance or --manual")
         inputs["manual"] = {"source": None, "pages": []}
         return []
     records = []
@@ -189,9 +213,17 @@ def manual_pages(inputs, meta, root):
             payload = Path(source).read_bytes()
         path = Path(root) / f"manual-{index:04d}.png"
         with Image.open(io.BytesIO(payload)) as image:
-            if image.mode not in {"1", "L", "LA", "P", "RGB", "RGBA", "I", "I;16"}:
-                image = image.convert("RGB")
-            image.save(path)
+            if mode is None:
+                if image.mode not in {"1", "L", "LA", "P", "RGB", "RGBA", "I", "I;16"}:
+                    image = image.convert("RGB")
+                image.save(path)
+            else:
+                suffix = {"PNG": ".png", "JPEG": ".jpg", "WEBP": ".webp"}.get(image.format)
+                if suffix is None:
+                    raise ValueError(f"Unsupported reference image format: {image.format}")
+                image.load()
+                path = path.with_suffix(suffix)
+                path.write_bytes(payload)
         pages.append(str(path))
         records.append(
             {
@@ -200,6 +232,23 @@ def manual_pages(inputs, meta, root):
                 "image_sha256": sha256(path.read_bytes()),
             }
         )
+        if mode is not None:
+            records[-1].update(
+                {
+                    k: selected[index - 1][k]
+                    for k in (
+                        "source_file",
+                        "manual_id",
+                        "page_index",
+                        "view_id",
+                        "step_id",
+                        "kind",
+                    )
+                    if k in selected[index - 1]
+                }
+            )
+    if mode is not None:
+        provenance["reference_mode"] = mode
     inputs["manual"] = {**provenance, "pages": records}
     return pages
 
@@ -252,9 +301,20 @@ async def execute_sample(
             if previous_manual is not None and inputs.get("manual") != previous_manual:
                 raise ValueError("Manual changed since the source run")
             write_json(sample / "input.json", inputs)
-            prompt = meta["task"] + "\n" + PROTOCOL.format(manual_count=len(pages))
+            protocol = (
+                REFERENCE_PROTOCOL
+                if meta["options"].get("reference_mode") is not None
+                else PROTOCOL.format(manual_count=len(pages))
+            )
+            prompt = meta["task"] + "\n" + protocol
             (sample / "prompt.txt").write_text(prompt)
-            append(sample / "conversation.jsonl", "message", role="user", content=prompt)
+            attachments = pages if meta["options"].get("reference_mode") is not None else []
+            append(
+                sample / "conversation.jsonl",
+                "message",
+                role="user",
+                content=prompt_content(prompt, attachments) if attachments else prompt,
+            )
             await browser.start(episode_url)
             bridge = Path(root) / "bridge.json"
             write_json(
@@ -268,8 +328,9 @@ async def execute_sample(
             result["execution"] = {"status": "running"}
             write_json(sample / "result.json", result)
             async with asyncio.timeout(meta["options"].get("timeout_seconds")):
+                kwargs = {"images": attachments} if attachments else {}
                 result["execution"] = await agent(
-                    meta["options"], root, bridge, prompt, sample / "conversation.jsonl"
+                    meta["options"], root, bridge, prompt, sample / "conversation.jsonl", **kwargs
                 )
             result["agent_outcome"] = outcome(result["execution"].get("final_answer", ""))
         except TimeoutError:
@@ -413,6 +474,7 @@ async def launch(options, *, source=None, retry_failed=False):
         options = {**previous["options"], **overrides}
         task = previous["task"]
     else:
+        options = {"reference_mode": "manualbook", **options}
         config, inputs = select_inputs(options)
         task = None
     versions = await doctor(options)

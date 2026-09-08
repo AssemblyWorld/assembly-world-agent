@@ -11,6 +11,12 @@ SOURCE_TO_Z_UP = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]])
 SOURCE_TO_Z_UP.flags.writeable = False
 
 
+def reference_pages(row: dict, mode: str):
+    """Use the last published page as reference; preserve original manual order."""
+    pages = row.get("manual_pages", [])
+    return pages[-1:] if mode == "final-image" else pages
+
+
 def adapt(row: dict, revision: str):
     return build_sample(
         row,

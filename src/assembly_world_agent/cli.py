@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from .adapters import get_adapter
+from .adapters import REFERENCE_MODES, get_adapter
 from .conversion import convert_dataset
 from .models import PreparationConfig
 
@@ -70,6 +70,7 @@ def main(argv=None):
     run.add_argument("--timeout-seconds", type=_positive_integer)
     run.add_argument("--prompt-file", type=Path)
     run.add_argument("--manual", type=Path)
+    run.add_argument("--reference-mode", choices=REFERENCE_MODES, default="manualbook")
     run.add_argument("--logs", type=Path, default=Path("logs"))
     check = commands.add_parser("doctor", help="Check CLI, Chrome and live WebMCP discovery")
     check.add_argument("--agent", choices=("codex", "claude"), required=True)

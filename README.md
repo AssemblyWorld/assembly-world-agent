@@ -94,12 +94,49 @@ provider-supported effort; unavailable models/settings fail in the CLI.
 
 The default task assembles the object and checks connections through WebMCP.
 `--prompt-file` replaces the task text while preserving transport instructions.
-Pinned HF manuals are reconstructed on demand, or use `--manual` with a directory
-of PNG/JPEG/WebP pages in filename order. An independent episode automatically
+Use `--reference-mode none|final-image|manualbook` (default `manualbook`) to select
+the reference images attached to the initial user prompt:
+
+| Mode | AssemblyBench | IKEA-Manual | PartNet-ManualPA |
+| --- | --- | --- | --- |
+| `none` | No reference images | No reference images | No reference images |
+| `final-image` | Final assembly step, ordinary view-0 diagram | First manual page (cover) | Last published manual page |
+| `manualbook` | Ordinary view-0 diagrams in numeric assembly-step order | Complete manual in original page order | Complete manual in published page order |
+
+AssemblyBench excludes arrow images, other views and images outside the source
+assembly steps. Missing or ambiguous required pages fail explicitly. Other
+datasets must define their own adapter selector before using either image mode.
+All modes expose identical MCP tools and allow scene captures. `read_manual_page`
+can only read the selected images, including zero pages for `none`.
+No source instruction text or other annotations are added to the prompt.
+
+Pinned HF images are reconstructed on demand with their original bytes, or use
+`--manual` with a directory of PNG/JPEG/WebP pages in filename order. For this
+explicit directory, `none` reads nothing, `final-image` uses the first image and
+`manualbook` uses all images. Codex receives image attachments through `--image`;
+Claude receives ordered image blocks through streaming JSON input. The public
+conversation retains the initial images. Input provenance records the mode,
+source page identifiers and image hashes; temporary image files are removed after
+each sample. `resume` inherits the mode. Older runs without a mode keep their
+original tool-only manual loading and image conversion behavior.
+
+An independent episode automatically
 uses a neighboring preparation configuration only if its filename, identity and
-checksum match. With no manual provenance, the default is geometry-based assembly.
-Manual files live in temporary directories; only provenance and hashes are stored
-in `input.json`. Images actually read by the agent remain in its conversation.
+checksum match. With no manual provenance, use `--reference-mode none` or supply
+an explicit `--manual` directory.
+
+Paired AssemblyBench experiments share the same initial archives and configuration;
+reference mode is experiment metadata, not episode identity. Select the official
+test IDs explicitly when converting (the HF stored split is `full`). After preparing
+the test configuration, run each condition separately with the same agent, model,
+effort and concurrency:
+
+```sh
+uv run assembly-world-agent run --dataset assemblybench --config-id CONFIG_ID \
+  --reference-mode none --agent codex --model MODEL_ID
+uv run assembly-world-agent run --dataset assemblybench --config-id CONFIG_ID \
+  --reference-mode final-image --agent codex --model MODEL_ID
+```
 
 Each sample receives its own Chrome process/profile, MCP connection and CLI
 process. The default environment is `https://3dwebagent.davidz.cn/`; supply
@@ -444,6 +481,12 @@ The geometry check rebuilds pinned HF samples, verifies archive reproducibility,
 GT reconstruction, inverse transforms, unchanged input, and seed-independent
 point clouds. Compiled render meshes use float32 vertices, so surface comparisons
 use a separate `2e-7` normalized tolerance.
+Source-to-task GT reconstruction and reconstructed grounding use an absolute
+`1e-10` normalized tolerance with no relative tolerance, allowing small
+PCA/matrix/quaternion round-trip errors (previously observed at approximately
+`6.2e-12` for AssemblyBench `1613`). The geometry log records
+the maximum GT transform error per sample. This validation tolerance does not
+change the generated episode, initialization or evaluation protocol.
 
 Browser conformance needs an explicit independent checkout of the pinned
 3DWebAgent commit with its own pnpm and Python dependencies installed. Build and

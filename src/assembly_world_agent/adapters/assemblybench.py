@@ -11,6 +11,30 @@ DEFAULT_REVISION = "266e883e1676af42c44c41484c77b662b987b966"
 SOURCE_TO_Z_UP = np.eye(3)
 SOURCE_TO_Z_UP.flags.writeable = False
 
+REFERENCE_COLUMNS = ("steps",)
+
+
+def reference_pages(row: dict, mode: str):
+    """Use exactly one ordinary view-zero diagram per requested assembly step."""
+    steps = [int(step["step_id"]) for step in row.get("steps", [])]
+    if not steps or len(set(steps)) != len(steps):
+        raise ValueError("AssemblyBench requires unique assembly steps")
+    selected = [max(steps)] if mode == "final-image" else sorted(steps)
+    by_step = {step: [] for step in selected}
+    for page in row.get("manual_pages", []):
+        view = page.get("view_id")
+        if page.get("kind") != "diagram" or not str(view).isdigit() or int(view) != 0:
+            continue
+        step = page.get("step_id")
+        if step in by_step:
+            by_step[step].append(page)
+    for step, pages in by_step.items():
+        if len(pages) != 1:
+            raise ValueError(
+                f"AssemblyBench step {step}: expected one view-0 diagram, got {len(pages)}"
+            )
+    return [by_step[step][0] for step in selected]
+
 
 def adapt(row: dict, revision: str):
     views = row.get("poses", {})

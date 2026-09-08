@@ -15,6 +15,11 @@ from assembly_world_agent import PreparationConfig, export_episode, prepare_samp
 from assembly_world_agent.artifacts import experiment, load_prepared, read_config
 from assembly_world_agent.utils import apply_pose, transform_points
 
+# PCA bases and matrix/quaternion round trips can accumulate order-1e-12
+# differences in normalized coordinates (AssemblyBench 1613: about 6.2e-12).
+# This bound remains 2000 times tighter than compiled float32 surface validation.
+GT_TRANSFORM_ATOL = 1e-10
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -33,8 +38,10 @@ def main():
     print(directory)
 
 
-def verify(args, configuration, report):
-    for source, sample in load_prepared(args.config, cache_dir=args.cache_dir):
+def verify(args, configuration, report, *, sample_ids=None):
+    for source, sample in load_prepared(
+        args.config, cache_dir=args.cache_dir, sample_ids=sample_ids
+    ):
         original = [p.mesh.vertices.copy() for p in source.parts]
         task = dict(
             sample_id=sample.sample_id,
@@ -57,6 +64,7 @@ def verify(args, configuration, report):
             )
             np.testing.assert_array_equal(raw.mesh.vertices, saved)
         maximum = 0.0
+        max_gt_transform_error = 0.0
         with tempfile.TemporaryDirectory(prefix="awa-geometry-") as temporary:
             temp = Path(temporary)
             repeated = export_episode(sample, temp / "repeated.zip")
@@ -98,12 +106,27 @@ def verify(args, configuration, report):
                     expected_parts.append(expected)
                 if pose_name == "gt_pose":
                     vertices = np.concatenate(expected_parts)
-                    np.testing.assert_allclose(vertices[:, 2].min(), 0, atol=1e-12, rtol=0)
+                    gt_ground_error = abs(float(vertices[:, 2].min()))
+                    np.testing.assert_allclose(
+                        gt_ground_error,
+                        0,
+                        atol=GT_TRANSFORM_ATOL,
+                        rtol=0,
+                        err_msg=f"{sample.sample_id}: reconstructed GT grounding",
+                    )
                     for part, raw in zip(sample.parts, source.parts):
                         assembled = apply_pose(raw.mesh.vertices, raw.assembled_pose)
                         actual = apply_pose(part.mesh.vertices, part.gt_pose)
+                        expected = transform_points(assembled, sample.source_to_world)
+                        max_gt_transform_error = max(
+                            max_gt_transform_error, float(np.max(np.abs(actual - expected)))
+                        )
                         np.testing.assert_allclose(
-                            actual, transform_points(assembled, sample.source_to_world), atol=1e-12
+                            actual,
+                            expected,
+                            atol=GT_TRANSFORM_ATOL,
+                            rtol=0,
+                            err_msg=f"{sample.sample_id}/{part.part_id}: GT coordinate transform",
                         )
                         np.testing.assert_allclose(
                             transform_points(actual, sample.world_to_source), assembled, atol=1e-9
@@ -121,6 +144,10 @@ def verify(args, configuration, report):
                 inverse_transform=True,
                 max_compiled_surface_error=maximum,
                 compiled_surface_atol=2e-7,
+                max_gt_transform_error=max_gt_transform_error,
+                gt_transform_atol=GT_TRANSFORM_ATOL,
+                gt_ground_error=gt_ground_error,
+                gt_ground_atol=GT_TRANSFORM_ATOL,
             )
         )
         print(f"{sample.sample_id}: geometry passed", flush=True)

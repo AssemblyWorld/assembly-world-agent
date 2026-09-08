@@ -1,6 +1,7 @@
 """Non-interactive agent subprocesses and exportable conversation normalization."""
 
 import asyncio
+import base64
 import json
 import os
 import sys
@@ -56,7 +57,28 @@ def normalize(row):
     return {"type": "event", "event": cleaned}
 
 
-def command(options, root, bridge):
+def prompt_content(prompt, images=()):
+    """Build the same ordered multimodal user content for input and public logging."""
+    from PIL import Image
+
+    content = [{"type": "text", "text": prompt}]
+    for path in images:
+        with Image.open(path) as image:
+            media_type = Image.MIME[image.format]
+        content.append(
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": media_type,
+                    "data": base64.b64encode(Path(path).read_bytes()).decode(),
+                },
+            }
+        )
+    return content
+
+
+def command(options, root, bridge, images=()):
     server = {
         "command": sys.executable,
         "args": ["-m", "assembly_world_agent.experiments.transport", str(bridge)],
@@ -102,7 +124,9 @@ def command(options, root, bridge):
         ]
         if options.get("effort"):
             args += ["-c", "model_reasoning_effort=" + json.dumps(options["effort"])]
-        return [*args, "-"]
+        for path in images:
+            args += ["--image", str(path)]
+        return [*args, "--", "-"]
     config = root / "mcp.json"
     write_json(config, {"mcpServers": {"assembly": server}})
     args = [
@@ -130,11 +154,13 @@ def command(options, root, bridge):
     ]
     if options.get("effort"):
         args += ["--effort", options["effort"]]
+    if images:
+        args += ["--input-format", "stream-json"]
     return args
 
 
-async def run_agent(options, root, bridge, prompt, conversation):
-    args = command(options, Path(root), bridge)
+async def run_agent(options, root, bridge, prompt, conversation, *, images=()):
+    args = command(options, Path(root), bridge, images)
     env = os.environ.copy()
     # Do not accidentally attach this independent process to the invoking desktop task.
     for key in list(env):
@@ -190,7 +216,20 @@ async def run_agent(options, root, bridge, prompt, conversation):
 
     readers = [asyncio.create_task(stdout()), asyncio.create_task(stderr())]
     try:
-        process.stdin.write(prompt.encode())
+        if options.get("agent") == "claude" and images:
+            payload = (
+                json.dumps(
+                    {
+                        "type": "user",
+                        "message": {"role": "user", "content": prompt_content(prompt, images)},
+                        "parent_tool_use_id": None,
+                    }
+                )
+                + "\n"
+            )
+        else:
+            payload = prompt
+        process.stdin.write(payload.encode())
         await process.stdin.drain()
         process.stdin.close()
         await asyncio.gather(process.wait(), *readers)
