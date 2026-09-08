@@ -98,5 +98,9 @@ def pca_frame(vertices: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         start = end
     if len(axes) < 2:
         raise ValueError("Degenerate part: fewer than two geometric axes")
-    basis = np.column_stack([axes[0], axes[1], np.cross(axes[0], axes[1])])
+    # Projection cancellation can leave tiny cross-axis residuals after normalization.
+    first = axes[0] / np.linalg.norm(axes[0])
+    second = axes[1] - first * np.dot(first, axes[1])
+    second /= np.linalg.norm(second)
+    basis = np.column_stack([first, second, np.cross(first, second)])
     return center, basis
