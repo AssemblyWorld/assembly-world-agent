@@ -7,8 +7,9 @@ Prepare reproducible assembly tasks from published
 
 This independent Python package owns task geometry, initialization and task data.
 3DWebAgent owns the generic runtime and episode contract. No sibling Python source
-is required for preparation or export. This project does not run a model assembly
-benchmark, implement an evaluator, or serve HTTP.
+is required for preparation or export. Browser experiments use isolated Chrome
+instances through WebMCP; ground-truth scoring remains a separate offline workflow.
+This project does not serve HTTP.
 
 ## Repository layout
 
@@ -20,11 +21,14 @@ data/                             # Ignored reusable initial tasks
     Chair--reidar.episode.zip
     Table--vittsjo_2.episode.zip
 logs/                             # Ignored individual experiments
-  <UTC-time>-<experiment>-<unique-id>/
-    meta.json
-    metrics.json
-    <sample>--runtime.episode.zip
-    screenshots/
+  <UTC-time>-browser-<unique-id>/
+    run.json
+    samples/<sample-id>/
+      input.json
+      prompt.txt
+      conversation.jsonl
+      result.json
+      final.episode.zip
 scripts/                          # Python command entrypoints
 src/assembly_world_agent/         # APIs, adapters, contracts and shared utils
 tests/                            # Offline regression tests
@@ -32,6 +36,99 @@ tests/                            # Offline regression tests
 
 There is no separate documentation directory. Data, logs, HF caches, virtual
 environments and build artifacts must not enter Git.
+
+## Browser experiments: Codex and Claude Code
+
+Install and authenticate the desired CLI separately. Install Chrome 150 or newer,
+Node.js compatible with Chrome DevTools MCP, and the pinned MCP executable:
+
+```sh
+pnpm add --global chrome-devtools-mcp@1.8.0
+uv sync --locked --extra episodes --group browser
+uv run assembly-world-agent doctor --agent codex
+uv run assembly-world-agent doctor --agent claude
+```
+
+`doctor` launches a temporary, visible Chrome profile, checks the installed CLI,
+MCP and Playwright versions, and verifies actual page WebMCP registration and MCP
+connectivity. It does not invoke a model or establish account/model availability.
+Chrome must be allowed to launch on the host; Linux needs a graphical session.
+Use `--chrome-path /absolute/path/to/chrome` or
+`--mcp-command /absolute/path/to/chrome-devtools-mcp` for nonstandard installations.
+The runner never installs packages or changes global MCP configuration.
+
+```sh
+# One existing episode; use a model available to the authenticated account.
+uv run assembly-world-agent run \
+  --episode /absolute/path/sample.episode.zip \
+  --agent codex --model MODEL_ID
+
+# An explicitly selected preparation configuration, four concurrent samples.
+uv run assembly-world-agent run \
+  --dataset ikea-manual --config-id PREPARATION_CONFIG_ID \
+  --agent claude --model MODEL_ID --concurrency 4
+
+# Read progress; retry unfinished samples in a NEW run directory.
+uv run assembly-world-agent status /absolute/path/logs/RUN_ID
+uv run assembly-world-agent resume /absolute/path/logs/RUN_ID --concurrency 4
+uv run assembly-world-agent resume /absolute/path/logs/RUN_ID --retry-failed
+```
+
+Dataset runs read `data/<dataset>/<config-id>/config.json` and existing episode
+ZIPs without converting or changing them. Use `--data` for another data root and
+`--logs` for another log root. Select a subset with repeated `--sample-id` or
+`--limit`; otherwise all prepared samples run. The default concurrency is one.
+`--timeout-seconds` limits the agent phase; by default it has no time limit.
+Startup and final export have separate bounded timeouts. `--effort` selects a
+provider-supported effort; unavailable models/settings fail in the CLI.
+
+The default task assembles the object and checks connections through WebMCP.
+`--prompt-file` replaces the task text while preserving transport instructions.
+Pinned HF manuals are reconstructed on demand, or use `--manual` with a directory
+of PNG/JPEG/WebP pages in filename order. An independent episode automatically
+uses a neighboring preparation configuration only if its filename, identity and
+checksum match. With no manual provenance, the default is geometry-based assembly.
+Manual files live in temporary directories; only provenance and hashes are stored
+in `input.json`. Images actually read by the agent remain in its conversation.
+
+Each sample receives its own Chrome process/profile, MCP connection and CLI
+process. The default environment is `https://3dwebagent.davidz.cn/`; supply
+`--environment-url` to use an already-running pinned deployment. The scheduler
+imports and exports through the public UI. Agents only receive page discovery,
+WebMCP discovery/execution and supplied-manual reading tools. A stdio forwarding
+adapter promotes serialized capture images to MCP image blocks and records full
+tool results. It contains no scene implementation or native runtime backend.
+Input physics settings and existing history are preserved. Local command execution
+and additional agents are disabled; credentials are reused without being copied
+into experiment artifacts. Host-managed client policies still apply.
+
+The compact log has six file types:
+
+| File | Purpose |
+| --- | --- |
+| `run.json` | Configuration, task text, versions, sample IDs, overall status and source run |
+| `input.json` | Input path/hash, episode identity, dataset provenance and manual provenance |
+| `prompt.txt` | Actual task prompt submitted to the CLI |
+| `conversation.jsonl` | Incremental public messages, tool calls/results and extension events |
+| `result.json` | Execution and export status, final answer, reported outcome, usage and errors |
+| `final.episode.zip` | Verified full browser export, including existing and new history |
+
+`result.json` distinguishes CLI completion, agent-reported assembly outcome, and
+archive success. Unknown costs/usage stay null. Conversation records exclude private
+reasoning and hidden instructions; unknown public events are retained. No separate
+trace, stderr, progress, CSV, report, or attempt files are generated. A final ZIP
+is absent if import/export failed; the input is never substituted as a final result.
+
+On interruption, dispatch stops and active samples attempt to export before closing.
+`resume` selects pending/running/interrupted samples; `--retry-failed` additionally
+selects failed samples. Already archived successful executions, including an
+agent-reported partial assembly, are skipped. Every retry starts from the original
+input in a new run referencing its predecessor, leaving the old run untouched.
+There is no automatic retry or browser-crash checkpoint recovery.
+
+Scoring and replay rendering remain separate commands. The evaluator accepts both
+new `run.json` and legacy `meta.json` metadata; dataset provenance is required for
+GT scoring. The browser run itself does not create metrics or videos.
 
 ## Installation and preparation API
 

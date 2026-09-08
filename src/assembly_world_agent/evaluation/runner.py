@@ -65,6 +65,11 @@ def prepare_evaluation_inputs(directory, expected, identity, source, *, similari
     archive_record = directory / "archive.json"
     if archive_record.exists() and json.loads(archive_record.read_text())["sha256"] != checksum:
         raise ValueError("Final episode differs from archival checksum")
+    result_path = directory / "result.json"
+    if result_path.exists():
+        saved = json.loads(result_path.read_text()).get("archive", {})
+        if saved.get("sha256") and saved["sha256"] != checksum:
+            raise ValueError("Final episode differs from result checksum")
     episode = read_episode(path)
     if episode["manifest"]["id"] != expected["episode_id"]:
         raise ValueError("Final episode identity differs")
@@ -197,7 +202,10 @@ def evaluate_run(run, *, cache_dir=None, similarity=None):
     """Score all configured samples, including partial outcomes, without changing inputs."""
     similarity = similarity or SimilarityConfig()
     run = Path(run).resolve()
-    meta = json.loads((run / "meta.json").read_text())
+    metadata_path = run / "run.json" if (run / "run.json").exists() else run / "meta.json"
+    meta = json.loads(metadata_path.read_text())
+    if not meta.get("config"):
+        raise ValueError("This run has no dataset provenance for ground-truth evaluation")
     config = meta["config"]
     identity = config["identity"]
     if config["version"] != 1 or config["config_id"] != config_id(identity):

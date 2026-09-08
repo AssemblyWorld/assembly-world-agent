@@ -201,7 +201,10 @@ def test_summary_macro_average_and_errors():
 
 
 @pytest.mark.parametrize("broken_pool", [False, True])
-def test_run_missing_final_is_recorded_and_outputs_replaced(tmp_path, monkeypatch, broken_pool):
+@pytest.mark.parametrize("metadata_name", ["meta.json", "run.json"])
+def test_run_missing_final_is_recorded_and_outputs_replaced(
+    tmp_path, monkeypatch, broken_pool, metadata_name
+):
     from concurrent.futures import ThreadPoolExecutor
 
     from assembly_world_agent.artifacts import config_id
@@ -227,7 +230,7 @@ def test_run_missing_final_is_recorded_and_outputs_replaced(tmp_path, monkeypatc
         identity=identity,
         samples={"Test/a": {}, "Test/b": {}},
     )
-    (tmp_path / "meta.json").write_text(json.dumps({"config": config}))
+    (tmp_path / metadata_name).write_text(json.dumps({"config": config}))
     (tmp_path / "metrics.json").write_text("original scheduling results")
     monkeypatch.setattr(
         runner,
