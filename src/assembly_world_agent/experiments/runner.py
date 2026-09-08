@@ -14,7 +14,8 @@ from ..artifacts import now, read_config, sample_name, write_json
 from ..episode_io import read_episode
 from ..episodes import sha256
 from .agents import run_agent
-from .browser import Browser, doctor
+from .browser import DEFAULT_ENVIRONMENT, Browser, doctor
+from .serving import EpisodeServer
 from .transport import append
 
 DEFAULT_TASK = """Assemble the supplied parts into a coherent object. If a manual is supplied,
@@ -221,7 +222,9 @@ def outcome(text):
     return None
 
 
-async def execute_sample(directory, sid, meta, *, browser_factory=Browser, agent=run_agent):
+async def execute_sample(
+    directory, sid, meta, *, episode_url, browser_factory=Browser, agent=run_agent
+):
     sample = directory / "samples" / sample_name(sid)
     inputs = read_json(sample / "input.json")
     result = {
@@ -252,7 +255,7 @@ async def execute_sample(directory, sid, meta, *, browser_factory=Browser, agent
             prompt = meta["task"] + "\n" + PROTOCOL.format(manual_count=len(pages))
             (sample / "prompt.txt").write_text(prompt)
             append(sample / "conversation.jsonl", "message", role="user", content=prompt)
-            await browser.start(inputs["initial_path"])
+            await browser.start(episode_url)
             bridge = Path(root) / "bridge.json"
             write_json(
                 bridge,
@@ -311,6 +314,17 @@ def status(directory):
 async def schedule(directory, *, execute=execute_sample):
     directory = Path(directory)
     meta = read_json(directory / "run.json")
+    with EpisodeServer(meta["options"].get("environment_url", DEFAULT_ENVIRONMENT)) as server:
+        urls = {
+            sid: server.add(
+                read_json(directory / "samples" / sample_name(sid) / "input.json")["initial_path"]
+            )
+            for sid in meta["samples"]
+        }
+        return await _schedule(directory, meta, urls, execute)
+
+
+async def _schedule(directory, meta, urls, execute):
     queue = asyncio.Queue()
     for sid in meta["samples"]:
         queue.put_nowait(sid)
@@ -324,7 +338,7 @@ async def schedule(directory, *, execute=execute_sample):
             except asyncio.QueueEmpty:
                 return
             print(f"{sid}: running", flush=True)
-            result = await execute(directory, sid, meta)
+            result = await execute(directory, sid, meta, episode_url=urls[sid])
             print(f"{sid}: {result['status']} ({queue.qsize()} pending)", flush=True)
             queue.task_done()
 

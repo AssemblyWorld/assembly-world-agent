@@ -7,8 +7,10 @@ source IDs, revisions, annotations and rights metadata. Do not modify input data
 Keep original polygons; sampling and episode rendering use derived triangulation.
 
 Produce setup episodes using the pinned public 3DWebAgent contract. Do not invent
-an episode format, copy runtime source, add HTTP serving or import sibling dataset
-packages. Call the independent 3DWebAgent checkout through explicit paths for
+an episode format, copy runtime source or import sibling dataset packages.
+HTTP serving is limited to the experiment-owned loopback service for selected
+episode archives; do not expose source datasets or task answers. Call the
+independent 3DWebAgent checkout through explicit paths for
 native, WASM and browser conformance tests. Offline evaluation computes versioned
 free-space SCD/PA/SR from final episodes. Adapters normalize source equivalence
 annotations; shared similarity processing supplies source or geometry groups on

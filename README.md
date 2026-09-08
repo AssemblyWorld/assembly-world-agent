@@ -103,8 +103,22 @@ in `input.json`. Images actually read by the agent remain in its conversation.
 
 Each sample receives its own Chrome process/profile, MCP connection and CLI
 process. The default environment is `https://3dwebagent.davidz.cn/`; supply
-`--environment-url` to use an already-running pinned deployment. The scheduler
-imports and exports through the public UI. Agents only receive page discovery,
+`--environment-url` to use an already-running pinned deployment. One static episode
+service is shared by every worker in a run, including single-episode runs and
+resumes. It binds to an ephemeral port on `127.0.0.1` and serves only explicitly
+selected archives through unguessable URLs; there is no directory listing or
+upload endpoint. Files are streamed from their existing locations, with no extra
+dataset cache. Cross-origin reads are allowed only for the configured environment.
+The service closes after the workers finish, including failed or interrupted runs.
+The temporary Chrome profile grants local-network access only to the configured
+environment origin so its HTTPS page can fetch the loopback episode URL.
+
+The scheduler imports through the environment's public `?episode=` URL interface
+and exports through the public UI. This avoids Playwright's 50 MiB limit for file
+transfers over a non-local CDP connection. Chrome and the static service run on the
+same host; external CDP browsers are not supported by this runner. URL loading
+errors fail the sample instead of running the agent against an empty fallback
+scene. Agents only receive page discovery,
 WebMCP discovery/execution and supplied-manual reading tools. A stdio forwarding
 adapter promotes serialized capture images to MCP image blocks and records full
 tool results. It contains no scene implementation or native runtime backend.

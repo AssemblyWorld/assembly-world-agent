@@ -1,4 +1,4 @@
-"""Dedicated Chrome lifecycle and public UI episode import/export."""
+"""Dedicated Chrome lifecycle, episode URL loading and public UI export."""
 
 import asyncio
 import json
@@ -6,9 +6,11 @@ import os
 import shutil
 import signal
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from ..episode_io import read_episode
 from ..episodes import sha256
+from .serving import environment_url
 
 MCP_VERSION = "1.8.0"
 DEFAULT_ENVIRONMENT = "https://3dwebagent.davidz.cn/"
@@ -53,7 +55,7 @@ class Browser:
         self.page = None
         self.loaded = False
 
-    async def start(self, episode=None):
+    async def start(self, episode_url=None):
         from playwright.async_api import async_playwright
 
         profile = self.root / "chrome"
@@ -83,23 +85,28 @@ class Browser:
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.connect_over_cdp(self.url)
         context = self.browser.contexts[0]
+        if episode_url:
+            environment = urlsplit(self.options["environment_url"])
+            await context.grant_permissions(
+                ["local-network-access"], origin=f"{environment.scheme}://{environment.netloc}"
+            )
         self.page = context.pages[0] if context.pages else await context.new_page()
         self.page.set_default_timeout(60000)
         self.cdp = await context.new_cdp_session(self.page)
         self.registered = set()
         self.cdp.on("WebMCP.toolsAdded", self._tools)
         await self.cdp.send("WebMCP.enable")
-        await self.page.goto(self.options["environment_url"], wait_until="domcontentloaded")
+        target = self.options["environment_url"]
+        if episode_url:
+            target = environment_url(target, episode_url)
+        await self.page.goto(target, wait_until="domcontentloaded")
         async with asyncio.timeout(90):
             while not self.registered:
                 await asyncio.sleep(0.1)
-        if episode:
-            self.registered.clear()
-            await self.page.get_by_label("Episode file", exact=True).set_input_files(str(episode))
-        async with asyncio.timeout(90):
-            while not self.registered:
-                await asyncio.sleep(0.1)
-        self.loaded = episode is not None
+        errors = [text.strip() for text in await self.page.get_by_role("alert").all_text_contents()]
+        if any(errors):
+            raise RuntimeError(f"Episode page failed: {'; '.join(filter(None, errors))}")
+        self.loaded = episode_url is not None
         return self
 
     def _tools(self, event):

@@ -14,7 +14,10 @@ from assembly_world_agent.experiments.transport import images
 
 
 def make_run(tmp_path, count=3):
-    inputs = {f"sample-{i}": {"sample_id": f"sample-{i}"} for i in range(count)}
+    inputs = {
+        f"sample-{i}": {"sample_id": f"sample-{i}", "initial_path": str(tmp_path / f"{i}.zip")}
+        for i in range(count)
+    }
     return runner.create_run({"logs": str(tmp_path), "concurrency": 2}, None, inputs)
 
 
@@ -42,8 +45,11 @@ def test_bounded_workers_and_no_early_stop_on_failure(tmp_path):
     active = peak = 0
     visited = []
 
-    async def execute(directory, sid, meta):
+    urls = []
+
+    async def execute(directory, sid, meta, *, episode_url):
         nonlocal active, peak
+        urls.append(episode_url)
         active += 1
         peak = max(peak, active)
         await asyncio.sleep(0.01)
@@ -56,6 +62,15 @@ def test_bounded_workers_and_no_early_stop_on_failure(tmp_path):
     assert asyncio.run(runner.schedule(run, execute=execute)) == 1
     assert peak == 2
     assert len(visited) == 5
+    from urllib.parse import urlsplit
+
+    assert len({urlsplit(url).netloc for url in urls}) == 1
+    assert len(set(urls)) == 5
+    import urllib.error
+    import urllib.request
+
+    with pytest.raises(urllib.error.URLError):
+        urllib.request.urlopen(urls[0], timeout=1)
     assert runner.status(run)["counts"] == {"completed": 4, "failed": 1}
 
 
@@ -143,6 +158,7 @@ def test_failure_salvage_and_cleanup(tmp_path, monkeypatch, failure):
             pass
 
         async def start(self, *args):
+            assert args == ("http://127.0.0.1/episode.zip",)
             self.loaded = True
 
         def mcp_command(self):
@@ -167,7 +183,14 @@ def test_failure_salvage_and_cleanup(tmp_path, monkeypatch, failure):
         return {"status": "completed", "final_answer": '{"status":"completed"}'}
 
     result = asyncio.run(
-        runner.execute_sample(run, "sample-0", meta, browser_factory=Browser, agent=agent)
+        runner.execute_sample(
+            run,
+            "sample-0",
+            meta,
+            episode_url="http://127.0.0.1/episode.zip",
+            browser_factory=Browser,
+            agent=agent,
+        )
     )
     assert closed == [True]
     assert result["status"] == ("completed" if failure is None else "failed")
@@ -182,7 +205,14 @@ def test_changed_input_is_not_run(tmp_path):
         run / "samples/sample-0/input.json",
         {"initial_path": str(tmp_path / "missing.zip"), "sha256": "wrong"},
     )
-    result = asyncio.run(runner.execute_sample(run, "sample-0", runner.read_json(run / "run.json")))
+    result = asyncio.run(
+        runner.execute_sample(
+            run,
+            "sample-0",
+            runner.read_json(run / "run.json"),
+            episode_url="http://127.0.0.1/missing",
+        )
+    )
     assert result["status"] == "failed"
     assert result["archive"]["status"] == "not_saved"
 
