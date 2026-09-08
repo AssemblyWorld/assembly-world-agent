@@ -74,6 +74,9 @@ def main(argv=None):
     check = commands.add_parser("doctor", help="Check CLI, Chrome and live WebMCP discovery")
     check.add_argument("--agent", choices=("codex", "claude"), required=True)
     for command in (run, check):
+        command.add_argument(
+            "--headless", action="store_true", help="Run Chrome without visible windows"
+        )
         command.add_argument("--environment-url", default=DEFAULT_ENVIRONMENT)
         command.add_argument("--chrome-path")
         command.add_argument("--mcp-command", default="chrome-devtools-mcp")

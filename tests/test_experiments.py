@@ -253,3 +253,49 @@ def test_resume_detects_missing_archive(tmp_path):
         {"status": "completed", "archive": {"sha256": "missing"}},
     )
     assert list(runner.resume_inputs(run)[2]) == ["sample-0"]
+
+
+@pytest.mark.parametrize("subcommand", ["run", "doctor"])
+@pytest.mark.parametrize("headless", [False, True])
+def test_cli_browser_mode(subcommand, headless, monkeypatch):
+    from assembly_world_agent.experiments import browser
+
+    received = []
+
+    async def inspect(options):
+        received.append(options)
+        return {} if subcommand == "doctor" else 0
+
+    monkeypatch.setattr(browser, "doctor", inspect)
+    monkeypatch.setattr(runner, "launch", inspect)
+    args = [subcommand, "--agent", "claude"]
+    if subcommand == "run":
+        args += ["--episode", "/tmp/example.episode.zip", "--model", "test"]
+    if headless:
+        args += ["--headless"]
+    assert main(args) == 0
+    assert received[0]["headless"] is headless
+
+
+@pytest.mark.parametrize("headless", [None, False, True])
+def test_resume_preserves_browser_mode(tmp_path, monkeypatch, headless):
+    source = make_run(tmp_path, 1)
+    meta = runner.read_json(source / "run.json")
+    if headless is not None:
+        meta["options"]["headless"] = headless
+    write_json(source / "run.json", meta)
+    observed = []
+
+    async def doctor(options):
+        assert options.get("headless", False) is bool(headless)
+        return {}
+
+    async def schedule(directory):
+        observed.append(runner.read_json(directory / "run.json"))
+        return 0
+
+    monkeypatch.setattr(runner, "doctor", doctor)
+    monkeypatch.setattr(runner, "schedule", schedule)
+    assert asyncio.run(runner.launch({"concurrency": 1}, source=source)) == 0
+    assert observed[0]["options"].get("headless", False) is bool(headless)
+    assert observed[0]["source_run"] == str(source)

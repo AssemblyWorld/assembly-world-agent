@@ -49,10 +49,14 @@ uv run assembly-world-agent doctor --agent codex
 uv run assembly-world-agent doctor --agent claude
 ```
 
-`doctor` launches a temporary, visible Chrome profile, checks the installed CLI,
+`doctor` launches a temporary Chrome profile, checks the installed CLI,
 MCP and Playwright versions, and verifies actual page WebMCP registration and MCP
 connectivity. It does not invoke a model or establish account/model availability.
-Chrome must be allowed to launch on the host; Linux needs a graphical session.
+Chrome must be allowed to launch on the host. By default windows are visible and
+Linux needs a graphical session. Add `--headless` to `doctor` or `run` to use
+modern Chrome without visible windows. This mode has been tested on macOS;
+WebGL rendering and required system libraries still need verification on a target
+Linux server. Use regular Chrome, not the legacy `chrome-headless-shell`.
 Use `--chrome-path /absolute/path/to/chrome` or
 `--mcp-command /absolute/path/to/chrome-devtools-mcp` for nonstandard installations.
 The runner never installs packages or changes global MCP configuration.
@@ -67,6 +71,12 @@ uv run assembly-world-agent run \
 uv run assembly-world-agent run \
   --dataset ikea-manual --config-id PREPARATION_CONFIG_ID \
   --agent claude --model MODEL_ID --concurrency 4
+
+# Headless mode uses the same WebMCP tools, screenshots and full episode export.
+uv run assembly-world-agent doctor --agent claude --headless
+uv run assembly-world-agent run \
+  --episode /absolute/path/sample.episode.zip \
+  --agent claude --model MODEL_ID --headless
 
 # Read progress; retry unfinished samples in a NEW run directory.
 uv run assembly-world-agent status /absolute/path/logs/RUN_ID
@@ -125,6 +135,8 @@ selects failed samples. Already archived successful executions, including an
 agent-reported partial assembly, are skipped. Every retry starts from the original
 input in a new run referencing its predecessor, leaving the old run untouched.
 There is no automatic retry or browser-crash checkpoint recovery.
+The browser mode is saved as `options.headless` in `run.json` and inherited by
+`resume`. Older logs without this field retain visible-browser behavior.
 
 Scoring and replay rendering remain separate commands. The evaluator accepts both
 new `run.json` and legacy `meta.json` metadata; dataset provenance is required for

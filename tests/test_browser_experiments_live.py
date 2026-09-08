@@ -20,12 +20,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-def test_real_webmcp_isolation_export_reload(tmp_path):
+@pytest.mark.parametrize("headless", [False, True], ids=["headed", "headless"])
+def test_real_webmcp_isolation_export_reload(tmp_path, headless):
     source = os.environ["AWA_BROWSER_EPISODE"]
     initial = read_episode(source)
     options = {
         "environment_url": os.environ.get("AWA_ENVIRONMENT_URL", DEFAULT_ENVIRONMENT),
         "mcp_command": os.environ.get("AWA_MCP_COMMAND", "chrome-devtools-mcp"),
+        "headless": headless,
     }
     expected = {"episode_id": initial["manifest"]["id"], "initial_calls": len(initial["calls"])}
 
@@ -36,6 +38,8 @@ def test_real_webmcp_isolation_export_reload(tmp_path):
         client = None
         try:
             await browser.start(source)
+            user_agent = await browser.page.evaluate("navigator.userAgent")
+            assert ("HeadlessChrome" in user_agent) == headless
             client = await Client().start(browser.mcp_command())
             pages = await client.request("tools/call", {"name": "list_pages", "arguments": {}})
             text = "\n".join(c.get("text", "") for c in pages["content"])
@@ -71,6 +75,7 @@ def test_real_webmcp_isolation_export_reload(tmp_path):
                 "capture_scene",
             ]
             assert saved["calls"][-2]["arguments"]["delta"] == [number / 10, 0, 0]
+            assert all(call["status"] == "completed" for call in saved["calls"][-2:])
         finally:
             if client:
                 await client.close()

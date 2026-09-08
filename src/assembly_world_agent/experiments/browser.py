@@ -67,6 +67,7 @@ class Browser:
             "--no-default-browser-check",
             "--enable-features=WebMCP",
             "--enable-blink-features=WebMCP,WebMCPTesting",
+            *(["--headless"] if self.options.get("headless", False) else []),
             "about:blank",
             stdout=asyncio.subprocess.DEVNULL,
             stderr=asyncio.subprocess.DEVNULL,
