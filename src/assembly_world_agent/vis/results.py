@@ -265,10 +265,41 @@ def manual_pages(directory, errors):
     return pages
 
 
+def prompt_manual_pages(directory, errors):
+    """Display only images actually supplied in the recorded initial user input."""
+    try:
+        inputs = json.loads((directory / "input.json").read_text())
+        records = inputs["manual"]["pages"]
+        with (directory / "conversation.jsonl").open() as stream:
+            first = next(
+                json.loads(line)
+                for line in stream
+                if line.strip() and json.loads(line).get("role") == "user"
+            )
+        content = first.get("content", [])
+        images = (
+            [b for b in content if b.get("type") == "image"] if isinstance(content, list) else []
+        )
+        if len(images) != len(records):
+            raise ValueError("Initial image count differs from recorded input provenance")
+        return [
+            {
+                **record,
+                "file": record.get("source_file", f"page-{index + 1}.png"),
+                **encode_manual_image(base64.b64decode(block["source"]["data"], validate=True)),
+            }
+            for index, (record, block) in enumerate(zip(records, images))
+        ]
+    except Exception as error:
+        errors.append(f"Manual: {error}")
+        return []
+
+
 def export_results(run, output, *, cache_dir=None):
     """Build an atomic HTML snapshot; preserve the run and isolate sample failures."""
     run, output = Path(run).resolve(), Path(output).resolve()
-    meta = json.loads((run / "meta.json").read_text())
+    current = (run / "run.json").exists()
+    meta = json.loads((run / ("run.json" if current else "meta.json")).read_text())
     config = meta["config"]
     identity = config["identity"]
     progress = (
@@ -300,8 +331,17 @@ def export_results(run, output, *, cache_dir=None):
             "id": sid,
             "status": progress.get(sid, {}).get("status", "unknown"),
             "errors": errors,
-            "manual": manual_pages(directory, errors),
+            "manual": (
+                prompt_manual_pages(directory, errors)
+                if current and meta.get("options", {}).get("reference_mode") is not None
+                else manual_pages(directory, errors)
+            ),
         }
+        if current and (directory / "result.json").exists():
+            result = json.loads((directory / "result.json").read_text())
+            row["status"] = f"execution: {result['status']}"
+            if result.get("agent_outcome"):
+                row["status"] += f" · agent: {result['agent_outcome']['status']}"
         ep, provenance, rejected = select_episode(
             directory, config["samples"][sid].get("episode_id")
         )
@@ -330,7 +370,15 @@ def export_results(run, output, *, cache_dir=None):
                 rebuilt = render_geometry(part)
                 if "replay" in row:
                     actual = row["replay"]["parts"][i]
-                    if actual["id"] != name or actual["geometry"] != rebuilt:
+                    recorded = actual["geometry"]
+                    if (
+                        actual["id"] != name
+                        or recorded["triangles"] != rebuilt["triangles"]
+                        or np.shape(recorded["vertices"]) != np.shape(rebuilt["vertices"])
+                        or not np.allclose(
+                            recorded["vertices"], rebuilt["vertices"], atol=2e-7, rtol=0
+                        )
+                    ):
                         raise ValueError("Rebuilt GT geometry differs from recorded geometry")
                 else:
                     geometry.append({"id": name, "geometry": rebuilt})

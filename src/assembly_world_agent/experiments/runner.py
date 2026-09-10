@@ -22,7 +22,8 @@ DEFAULT_TASK = """Assemble the supplied parts into a coherent object. If a manua
 read its pages in order and follow it. Otherwise infer the assembly from geometry.
 Inspect connections from multiple camera views using capture_scene, correct gaps,
 orientation and obvious interpenetration, and report uncertainties. Do not claim
-computed accuracy or physical stability without evidence."""
+computed accuracy or physical stability without evidence.
+Before finishing, check whether all supplied parts have been incorporated into the assembly."""
 PROTOCOL = """
 The scheduler has already loaded your episode in the dedicated browser.
 Use list_pages to find the environment page, then list_webmcp_tools and

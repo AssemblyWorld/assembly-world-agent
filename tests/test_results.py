@@ -217,3 +217,56 @@ def test_light_ikea_loader_preserves_geometry_without_adapter(row, monkeypatch):
         assert results.render_geometry(a) == results.render_geometry(b)
         assert np.array_equal(a.gt_pose.position, b.gt_pose.position)
         assert np.array_equal(a.gt_pose.quaternion, b.gt_pose.quaternion)
+
+
+def test_current_run_prompt_images_and_status(tmp_path, monkeypatch):
+    import io
+
+    from PIL import Image
+
+    run = tmp_path / "run"
+    directory = run / "samples/a"
+    directory.mkdir(parents=True)
+    raw = io.BytesIO()
+    Image.new("RGB", (8, 8), "red").save(raw, format="PNG")
+    meta = {
+        "options": {"reference_mode": "manualbook"},
+        "config": {
+            "identity": {"dataset": "assemblybench", "revision": "fixture", "preparation": {}},
+            "samples": {"a": {}},
+        },
+    }
+    (run / "run.json").write_text(json.dumps(meta))
+    (directory / "input.json").write_text(
+        json.dumps({"manual": {"pages": [{"page": 1, "source_file": "000_000.png"}]}})
+    )
+    (directory / "result.json").write_text(json.dumps({"status": "completed"}))
+    (directory / "conversation.jsonl").write_text(
+        json.dumps(
+            {
+                "type": "message",
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "assemble"},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "data": base64.b64encode(raw.getvalue()).decode(),
+                        },
+                    },
+                ],
+            }
+        )
+        + "\n"
+    )
+    errors = []
+    pages = results.prompt_manual_pages(directory, errors)
+    assert len(pages) == 1 and pages[0]["file"] == "000_000.png" and not errors
+    monkeypatch.setattr(results, "load_result_samples", lambda *a, **kw: iter(()))
+    report = results.export_results(run, tmp_path / "results.html")
+    assert report["samples"] == 1
+    assert not any("Manual:" in error for error in report["errors"]["a"])
+    (directory / "input.json").write_text(json.dumps({"manual": {"pages": []}}))
+    assert results.prompt_manual_pages(directory, errors) == []
+    assert "count differs" in errors[-1]

@@ -93,6 +93,8 @@ Startup and final export have separate bounded timeouts. `--effort` selects a
 provider-supported effort; unavailable models/settings fail in the CLI.
 
 The default task assembles the object and checks connections through WebMCP.
+Before finishing, the agent is asked to check whether all supplied parts have
+been incorporated into the assembly.
 `--prompt-file` replaces the task text while preserving transport instructions.
 Use `--reference-mode none|final-image|manualbook` (default `manualbook`) to select
 the reference images attached to the initial user prompt:
@@ -137,6 +139,41 @@ uv run assembly-world-agent run --dataset assemblybench --config-id CONFIG_ID \
 uv run assembly-world-agent run --dataset assemblybench --config-id CONFIG_ID \
   --reference-mode final-image --agent codex --model MODEL_ID
 ```
+
+### AssemblyBench full-manual experiment
+
+The prepared official test set contains 280 unique samples and 1,829 parts under
+`data/assemblybench/prep-v1-s0-i0-5201fd352313/`, pinned to HF revision
+`266e883e1676af42c44c41484c77b662b987b966`. It uses XML episodes, sampling and
+initialization seeds 0, 4096/1000 surface/FPS points, and minimum gap 0.02.
+The command below selects all 280 samples; it starts a new run from their shared
+initial archives, including samples previously used in pilots. Pilot results
+remain separate. The default task includes a single final check that all supplied
+parts have been incorporated; no additional checklist prompt file is required.
+
+```sh
+# From this project, with the existing CLI and MCP installations available.
+# Set AWA_MCP_COMMAND to the executable path if it is not on PATH.
+uv run --locked assembly-world-agent doctor --agent codex --headless \
+  --mcp-command "${AWA_MCP_COMMAND:-chrome-devtools-mcp}"
+uv run --locked assembly-world-agent run \
+  --dataset assemblybench --config-id prep-v1-s0-i0-5201fd352313 \
+  --reference-mode manualbook --agent codex --model gpt-6-astra \
+  --effort medium --concurrency 3 --headless \
+  --mcp-command "${AWA_MCP_COMMAND:-chrome-devtools-mcp}"
+
+# Replace RUN_ID with the new run printed by the runner.
+uv run --locked assembly-world-agent status logs/RUN_ID
+uv run --locked --extra episodes python scripts/evaluate_run.py logs/RUN_ID
+uv run --locked --extra episodes python scripts/export_results.py logs/RUN_ID \
+  --output logs/RUN_ID/results.html
+```
+
+The model phase has no time limit. Check progress without interrupting active
+workers. Score only after export completes, and distinguish execution completion
+from the agent's `completed`/`partial` status and measured SCD/PA/SR. Record any
+failed samples and retry them in a separate run rather than silently replacing
+results. The three-sample pilot and retries do not establish full-test performance.
 
 Each sample receives its own Chrome process/profile, MCP connection and CLI
 process. The default environment is `https://3dwebagent.davidz.cn/`; supply
@@ -592,6 +629,12 @@ server or neighboring files are required. Generation loads the experiment's pinn
 HF revision with `streaming=False` to rebuild GT, using the standard HF cache
 (`HF_HOME` or `--cache-dir`). The first run downloads and prepares the dataset;
 later runs reuse that dataset cache. Each export regenerates the full HTML.
+Current browser runs are read from `run.json` and per-sample `result.json`.
+For reference-mode runs, the displayed manual contains exactly the images recorded
+in the initial user prompt, with the page count checked against `input.json`.
+Legacy runs continue to use `meta.json` and their retained manualbook directory.
+Reconstructed geometry uses the evaluator's `2e-7` vertex tolerance with exact
+triangle topology, accommodating numerical PCA differences in older inputs.
 For pinned IKEA data, export reads geometry directly from Arrow without decoding
 HF manual images, normals or annotations or running the full dataset adapter.
 Other datasets retain their existing adapter paths.
