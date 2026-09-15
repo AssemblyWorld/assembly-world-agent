@@ -58,6 +58,10 @@ def load_samples(
         token=token,
         **({} if streaming else getattr(adapter, "LOAD_KWARGS", {})),
     )
+    if not streaming and wanted is not None and hasattr(rows, "select_columns"):
+        # Inspect only IDs before decoding potentially gigabytes of unselected meshes.
+        ids = rows.select_columns([adapter.SAMPLE_ID_FIELD])[adapter.SAMPLE_ID_FIELD]
+        rows = rows.select([i for i, identity in enumerate(ids) if identity in wanted])
     found = set()
     emitted = 0
     iterator = iter(rows)

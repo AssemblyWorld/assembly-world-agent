@@ -125,6 +125,21 @@ class Browser:
     async def export(self, target, expected):
         if not self.loaded:
             raise RuntimeError("Input episode was not loaded")
+        # MCP can reconnect after a transport interruption while Playwright still
+        # holds a closed page handle. Reattach only to the same existing episode.
+        if not self.browser.is_connected() or self.page.is_closed():
+            expected_url = self.page.url
+            self.browser = await self.playwright.chromium.connect_over_cdp(self.url)
+            candidates = [
+                page
+                for context in self.browser.contexts
+                for page in context.pages
+                if not page.is_closed() and page.url == expected_url
+            ]
+            if len(candidates) != 1:
+                raise RuntimeError("Cannot uniquely recover the existing episode page for export")
+            self.page = candidates[0]
+            self.page.set_default_timeout(60000)
         target = Path(target)
         temporary = self.root / "export.episode.zip"
         async with asyncio.timeout(60):

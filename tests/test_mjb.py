@@ -16,6 +16,22 @@ from assembly_world_agent.mjb import export_mjb_episode
 mj = pytest.importorskip("mujoco")
 
 
+def test_compiled_normal_roundoff_does_not_relax_geometry(fantastic_row, tmp_path):
+    sample = prepare_sample(adapt_sample("fantastic-breaks", fantastic_row, revision="a" * 40))
+    record = write_task(sample, tmp_path, model_format="mjb")
+    episode = read_episode(Path(record["config_directory"]) / record["episode"])
+    actual, expected = load_model(episode), load_model(episode)
+    actual.mesh_normal[0, 0] += 5e-6
+    validate_compiled_model(actual, expected)
+    actual.mesh_normal[0, 0] += 1e-3
+    with pytest.raises(ValueError, match="mesh_normal"):
+        validate_compiled_model(actual, expected)
+    actual = load_model(episode)
+    actual.mesh_vert[0, 0] += 5e-6
+    with pytest.raises(ValueError, match="mesh_vert"):
+        validate_compiled_model(actual, expected)
+
+
 def test_optional_format_defaults_and_cli(monkeypatch):
     mock = Mock()
     monkeypatch.setattr(cli, "convert_dataset", mock)

@@ -130,8 +130,11 @@ def validate_compiled_model(actual, expected):
             equal = a == b
         else:
             a, b = np.asarray(a), np.asarray(b)
+            # Recomputed float32 shading normals amplify tiny compiler frame
+            # differences near degenerate faces. Positions retain the tighter bound.
+            tolerance = 1e-5 if name == "mesh_normal" else 2e-7
             equal = a.shape == b.shape and (
-                np.allclose(a, b, atol=2e-7, rtol=0)
+                np.allclose(a, b, atol=tolerance, rtol=0)
                 if np.issubdtype(a.dtype, np.floating)
                 else np.array_equal(a, b)
             )

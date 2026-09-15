@@ -6,6 +6,25 @@ from assembly_world_agent import load_samples, loading
 from assembly_world_agent.adapters import get_adapter
 
 
+def test_nonstreaming_selects_ids_before_decoding_geometry(monkeypatch):
+    from datasets import Dataset
+
+    dataset = Dataset.from_dict({"object_id": ["a", "b", "c"], "geometry": [1, 2, 3]})
+    decoded = []
+
+    def decode(batch):
+        if "geometry" in batch:
+            decoded.extend(batch["object_id"])
+        return batch
+
+    dataset.set_transform(decode)
+    monkeypatch.setattr(loading, "load_dataset", lambda *args, **kwargs: dataset)
+    monkeypatch.setattr(loading, "adapt_sample", lambda name, row, revision: row)
+    result = list(load_samples("ikea-manual", sample_ids=["c"]))
+    assert result == [{"object_id": "c", "geometry": 3}]
+    assert decoded == ["c"]
+
+
 def test_pinned_loading_is_bounded_and_does_not_resolve_network(monkeypatch, row):
     def stream():
         yield row

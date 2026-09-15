@@ -695,6 +695,68 @@ Run esbuild with `--bundle --minify --format=iife` and write its output to
 
 ## Offline assembly evaluation
 
+### GARF-style fracture metrics
+
+```bash
+uv run --locked --extra episodes scripts/evaluate_garf.py \
+  logs/<first-run> logs/<resumed-run> --output logs/<new-evaluation-directory>
+```
+
+This separate evaluator adds RMSE(R), RMSE(T), PA and CD without changing the
+existing SCD/PA/SR evaluator below. It joins the configured sample sets across
+resumed runs, requires at most one final episode per sample, and reports missing
+or invalid episodes as errors rather than silently dropping them. It uses three
+bounded worker processes and pinned HF data with non-streaming loading. The output
+directory must be new. `--seed` (default 42), `--cache-dir`, and `--limit` are
+available for deterministic sampling and pilot checks. Production code validates
+episode identity, archived hashes, reconstructed input geometry and final native
+state; it does not render or modify the episode or save GT resources.
+Compiled geometry comparison uses absolute tolerance 2e-7 for positions and
+physical arrays, exact integer topology, and 1e-5 for derived float32 shading
+normals. The latter accommodates compiler rounding near degenerate faces without
+relaxing vertex or topology checks.
+
+Protocol `garf-style-anchor-v1` follows the public
+[GARF evaluator](https://github.com/ai4ce/GARF/blob/2d489c0b7b58de8af774aa1657c86c638e4744c2/assembly/models/denoiser/modules/evaluation/evaluator.py),
+[data loader](https://github.com/ai4ce/GARF/blob/2d489c0b7b58de8af774aa1657c86c638e4744c2/assembly/data/breaking_bad/base.py)
+and [weighted sampling](https://github.com/ai4ce/GARF/blob/2d489c0b7b58de8af774aa1657c86c638e4744c2/assembly/data/breaking_bad/weighted.py):
+
+- Allocate 5,000 surface points by part area, with a minimum of 20 per part and
+  the integer remainder assigned to the largest allocation. Use independent,
+  reproducible surface draws on derived triangulation, with no FPS or simplification.
+- Divide source coordinates by `max(1, largest per-part source AABB extent)`,
+  reproducing the public loader's rule on our HF meshes. Do not fit prediction scale.
+- Align all predicted poses by one rigid transform taking the largest sampled
+  part to its target pose, following GARF's `anchor_free` evaluation branch.
+  No ICP or part reassignment is performed. The anchor is included in averages;
+  for two-part samples, one part is consequently correct by construction.
+- RMSE(R) uses wrapped intrinsic XYZ Euler-angle differences in degrees, with
+  coordinate RMS followed by equal part averaging. It is not geodesic error.
+  RMSE(T) uses the same averaging order on sampled-centroid translations.
+- PA counts same-ID parts with bidirectional mean squared CD **strictly below**
+  0.01. Shape CD finds nearest neighbors across the whole assembly, averages
+  each directional distance within each part, then averages parts equally.
+  It is not a pooled point mean when part sample counts differ.
+- Aggregate each metric by sample macro mean. JSON stores raw RMSE(T), CD and
+  fractional PA. For paper-style display, multiply RMSE(T) by 100, CD by 1,000,
+  and PA by 100. `metrics.jsonl` records per-sample/per-part scores, anchor,
+  sampling counts, scales and final episode hash. `metrics_summary.json` and
+  `meta.json` document coverage, protocol, limitations and provenance.
+
+**Comparison scope:** [GARF Table 3](https://openaccess.thecvf.com/content/ICCV2025/html/Li_GARF_Learning_Generalizable_3D_Reassembly_for_Real-World_Fractures_ICCV_2025_paper.html)
+reports 10.62 degrees, 2.10 (translation x100), 91.00% PA and 2.12 (CD x1000).
+The paper describes 195 Fantastic Breaks objects, whereas our pinned HF revision
+contains 150. The official Fantastic Breaks HDF5 object list and its upstream
+mesh scaling have not been matched to this revision. Our random point draws,
+local input orientations, full-mesh observations and inference procedure differ;
+Euler RMSE in particular depends on the chosen input frame. These outputs are
+**GARF-style diagnostic scores, not a direct reproduction or a leaderboard
+comparison**. A controlled comparison requires the same object manifest, source
+geometry/units, sampled points and input frames, and evaluation of both methods
+under that shared protocol. Original free-space SCD/PA/SR remains available below.
+
+### Existing free-space metrics
+
 ```bash
 uv run --extra episodes scripts/evaluate_run.py logs/<run-id>
 # Optional writable or existing Hugging Face dataset cache:
@@ -812,3 +874,20 @@ geometry evaluator first; this comparison requires its persisted groups and tran
 Clear notebook outputs before saving/sharing: reconstructed GT stays in memory,
 not in the committed notebook. Existing metric and episode hashes are checked after
 execution.
+
+## Ordered experiment batches
+
+`uv run --locked --extra episodes --group browser python scripts/run_experiment_batch.py PLAN.json`
+executes explicit experiment groups sequentially using the existing browser runner.
+The plan contains shared runner `options`, the fixed `task`, and ordered `groups`
+with `name`, `expected_samples`, and per-group `options`. Explicit `sample_id` lists
+can exclude previously reviewed samples without modifying their original runs.
+
+The controller writes `batch_state.json` beside the plan and refuses to overwrite
+existing batch state. Three consecutive execution/archive failures stop new dispatches
+while active samples finish. Create a `STOP` file beside the plan to request the same
+drain behavior. Individual failures are recorded without automatic retries. Run-level
+`batch_outcomes.json` separately identifies recovered CLI reconnection warnings when
+the CLI exits successfully with a final response, completed-turn usage and a saved
+archive; original `result.json` files remain unchanged. Agent-declared partial assembly
+is an assembly outcome, not an infrastructure failure. Offline scoring is separate.

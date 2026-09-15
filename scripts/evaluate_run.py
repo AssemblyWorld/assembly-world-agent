@@ -12,6 +12,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run", type=Path)
     parser.add_argument("--cache-dir", type=Path)
+    parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--similarity-policy", choices=("source", "geometry"), default="geometry")
     parser.add_argument(
         "--similarity-threshold",
@@ -25,7 +26,9 @@ def main():
         args.similarity_policy,
         args.similarity_threshold if args.similarity_threshold is not None else 1e-4,
     )
-    summary = evaluate_run(args.run, cache_dir=args.cache_dir, similarity=similarity)
+    summary = evaluate_run(
+        args.run, cache_dir=args.cache_dir, similarity=similarity, workers=args.workers
+    )
     print(json.dumps(summary, indent=2))
     return 0 if summary["status"] == "complete" else 1
 

@@ -198,8 +198,10 @@ def score_source(directory, expected, identity, source, similarity=None):
         return error_row(source.sample_id, exc, similarity)
 
 
-def evaluate_run(run, *, cache_dir=None, similarity=None):
+def evaluate_run(run, *, cache_dir=None, similarity=None, workers=4):
     """Score all configured samples, including partial outcomes, without changing inputs."""
+    if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
+        raise ValueError("workers must be a positive integer")
     similarity = similarity or SimilarityConfig()
     run = Path(run).resolve()
     metadata_path = run / "run.json" if (run / "run.json").exists() else run / "meta.json"
@@ -221,7 +223,7 @@ def evaluate_run(run, *, cache_dir=None, similarity=None):
         sample_name(sid)
     kwargs = dict(revision=identity["revision"], cache_dir=cache_dir, streaming=False)
     records, submitted = {}, set()
-    workers = min(4, os.cpu_count() or 1, len(expected))
+    workers = min(workers, os.cpu_count() or 1, len(expected))
 
     def record(row):
         sid = row["sample_id"]
