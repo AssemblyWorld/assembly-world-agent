@@ -1,0 +1,425 @@
+{
+  "dataset": "AssemblyWorld/assemblybench",
+  "revision": "266e883e1676af42c44c41484c77b662b987b966",
+  "split": "official test (280)",
+  "terms": [
+    "gun",
+    "rifle",
+    "pistol",
+    "firearm",
+    "barrel",
+    "trigger",
+    "magazine",
+    "ammo",
+    "bullet",
+    "knife",
+    "blade",
+    "sword",
+    "weapon",
+    "grenade",
+    "bomb",
+    "crossbow",
+    "bow",
+    "scope",
+    "muzzle"
+  ],
+  "hits": [
+    {
+      "sample_id": "1047",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Core Body",
+        "Base Support",
+        "Handle",
+        "Blade",
+        "Crank",
+        "Cap"
+      ],
+      "manual": "Place core body in the center. | Attach the handle to the designated slot on the core body by aligning the pins and pressing it into place. | Insert the blade into the designated slot at the top of the core body. | Place the cap onto the top opening of the core body. | Place the crank onto the core body as shown in the diagram. | Attach the base support to the bottom of the assembly as shown.",
+      "decision": "keep",
+      "note": "Blade with Crank, Handle, Cap: hand tool"
+    },
+    {
+      "sample_id": "1717",
+      "terms": [
+        "barrel"
+      ],
+      "parts": [
+        "Adjustment Screw",
+        "Adjustment Screw",
+        "Clamp Body",
+        "Barrel Core"
+      ],
+      "manual": "Place clamp body to the center. | Insert the barrel core into the designated opening on the clamp body. | Insert the adjustment screw into the clamp body. | Install the adjustment screw into the designated hole on the clamp body.",
+      "decision": "keep",
+      "note": "Barrel Core is a clamp body"
+    },
+    {
+      "sample_id": "1874",
+      "terms": [
+        "barrel"
+      ],
+      "parts": [
+        "Clamp",
+        "Clamp",
+        "Base Block",
+        "Barrel Tube",
+        "Support Bar",
+        "Main Beam",
+        "Alignment Pin"
+      ],
+      "manual": "Place main beam to the center. | Attach the main beam onto the barrel tube. | Attach the main beam onto the support bar. | Attach the clamp to secure the barrel tube and support bar together. | Slide the clamp onto the barrel tube and align it with the support bar. | Attach the base block to the main beam. | Insert the alignment pin into the designated hole on the assembly.",
+      "decision": "exclude",
+      "note": "Barrel Tube on Base Block and Main Beam: assembled shape reads as a cannon barrel (geometry review 2026-09-16)"
+    },
+    {
+      "sample_id": "2651",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Frame",
+        "Top Cover",
+        "Fin Blade",
+        "Pin",
+        "Pin",
+        "Middle Divider",
+        "End Cap",
+        "Latch",
+        "Guide Panel",
+        "Support Plate",
+        "Spacer Block",
+        "Retainer Clip",
+        "Alignment Bridge"
+      ],
+      "manual": "Place fin blade to the center. | Attach the guide panel to the designated position on the main assembly as shown. | Attach the middle divider to the main assembly as shown. | Attach the end cap to the bottom of the assembly as shown. | Attach the support plate to the assembly as shown, ensuring it aligns with the designated slots. | Insert the pin into the designated slot at the top of the assembl",
+      "decision": "keep",
+      "note": "Fin Blade with Frame, Top Cover, Divider: fan housing"
+    },
+    {
+      "sample_id": "2944",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Core",
+        "Blade",
+        "Blade",
+        "End Cap",
+        "End Cap",
+        "Clip",
+        "Clip",
+        "Clip",
+        "Clip"
+      ],
+      "manual": "Place core in the center. | Attach the end cap to the end of the core. | Attach the clip to the designated position on the core. | Attach the blade to the assembly. | Attach the end cap to the end of the core. | Attach the clip to the end cap at the designated location. | Attach the blade to the end of the core, ensuring it is securely positioned as shown. | Attach the clip to the designated posit",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "3374",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Base",
+        "Blades",
+        "Blades",
+        "Blades"
+      ],
+      "manual": "Place base in the center. | Attach the blade to the top of the base. | Attach the blade to the designated slot on the base. | Insert the blade into the slot on the top of the base.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "3429",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Outer Frame",
+        "Blade",
+        "Blade",
+        "Blade",
+        "Blade",
+        "Blade",
+        "Blade"
+      ],
+      "manual": "Place blade to the center. | Attach the blade to the indicated position on the structure. | Attach the blade to the central assembly as shown. | Attach the outer frame to the assembly. | Attach the blade to the central hub, ensuring it is securely positioned within the outer frame. | Attach the blade to the central hub of the outer frame, ensuring it is securely fitted in place. | Insert the blade",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "3436",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "End Wing",
+        "Central Rod",
+        "Joint Block",
+        "Blade"
+      ],
+      "manual": "Place joint block to the center. | Attach the joint block onto the central rod. | Attach the end wing to the central rod by aligning it as shown and securing it in place. | Attach the blade to the end wing as shown in the diagram.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "3905",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Frame Shell",
+        "Blade Assembly",
+        "Mounting Lug",
+        "Mounting Lug",
+        "Mounting Lug",
+        "Mounting Lug",
+        "Mounting Lug",
+        "Mounting Lug",
+        "Mounting Lug",
+        "Mounting Lug",
+        "Rod",
+        "Rod",
+        "Fastener",
+        "Spacer",
+        "Fastener",
+        "Spacer",
+        "Hex Nut",
+        "Spacer",
+        "Fastener",
+        "Spacer"
+      ],
+      "manual": "Place frame shell to the center. | Attach the mounting lug to the frame shell. | Attach the mounting lug to the frame shell. | Attach the mounting lug to the designated position on the frame shell. | Attach the mounting lug to the designated corner of the frame shell. | Position the frame shell upright as shown in the image. | Attach the mounting lug to the frame shell. | Insert the rod into the d",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "4096",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Edge",
+        "Guard",
+        "Block",
+        "Mount",
+        "Spacer",
+        "Collar",
+        "Capstone",
+        "Butt"
+      ],
+      "manual": "Place edge in the center. | Slide the guard onto the tang of the blade until it fits securely in place. | Slide the mount onto the handle until it is secured in place. | Slide the collar onto the tang of the blade until it rests against the guard. | Slide the spacer onto the tang, positioning it flush against the collar. | Attach the block to the end of the pomer. | Attach the capstone to the end ",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "4211",
+      "terms": [
+        "trigger"
+      ],
+      "parts": [
+        "Actuation Arm",
+        "End Block",
+        "Switch Housing",
+        "Support Bracket",
+        "Retainer Block",
+        "Trigger Plate",
+        "Base Frame",
+        "Extension Strip",
+        "Actuation Arm"
+      ],
+      "manual": "Place trigger plate to the center. | Attach the support bracket to the main assembly as shown. | Install the retainer block onto the assembly as shown. | Attach the actuation arm to the main assembly by aligning its holes with the corresponding mounting points. | Attach the end block to the support bracket as shown, ensuring it is securely positioned. | Insert the extension strip into the assembly",
+      "decision": "keep",
+      "note": "Trigger Plate with Switch Housing, Actuation Arm: switch mechanism"
+    },
+    {
+      "sample_id": "429",
+      "terms": [
+        "barrel"
+      ],
+      "parts": [
+        "Barrel",
+        "Lens Cap",
+        "Head",
+        "Support Column"
+      ],
+      "manual": "Place support column in the center. | Attach the head onto the top of the assembly. | Attach the lens cap to the head. | Attach the barrel to the main assembly.",
+      "decision": "keep",
+      "note": "Barrel is a lens barrel (Lens Cap, Head, Support Column)"
+    },
+    {
+      "sample_id": "4293",
+      "terms": [
+        "bow"
+      ],
+      "parts": [
+        "Lid",
+        "Container",
+        "Bow"
+      ],
+      "manual": "Place container in the center. | Place the lid on top of the container. | Place the bow onto the center of the lid.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "5125",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Support Column",
+        "Blade",
+        "Blade",
+        "Blade",
+        "Blade",
+        "Blade",
+        "Blade"
+      ],
+      "manual": "Place blade to the center. | Attach the blade to the assembly as shown. | Attach the blade to the designated section as shown in the diagram. | Attach the support column to the base. | Attach the blade to the top section of the support column. | Attach the blade to the top of the support column. | Attach the blade to the top of the support column, ensuring it is securely positioned.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "5292",
+      "terms": [
+        "barrel",
+        "trigger"
+      ],
+      "parts": [
+        "Barrel Ring",
+        "Seal Ring",
+        "Actuation Lever",
+        "Handle",
+        "Trigger Guard",
+        "Grip",
+        "End Cap",
+        "Rear Ring",
+        "Ribbed Sleeve",
+        "Core Body",
+        "Coupling Shell"
+      ],
+      "manual": "Place trigger guard to the center. | Attach the rear ring to the designated position on the main assembly. | Attach the trigger guard to the core body as shown. | Attach the end cap to the rear opening of the rear ring. | Attach the barrel ring to the core body. | Attach the trigger guard to the top of the grip and core body assembly. | Attach the seal ring to the end cap. | Slide the ribbed sleev",
+      "decision": "exclude"
+    },
+    {
+      "sample_id": "569",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Shell Plate",
+        "Tail Cap",
+        "Neck",
+        "Blade",
+        "Blade",
+        "Fin",
+        "Fin"
+      ],
+      "manual": "Place fin to the center. | Attach the blade to the outlined section of the assembly as shown. | Attach the blade to the fin. | Attach the shell plate as the base component. | Attach the tail cap to the rear section of the shell plate, ensuring it fits securely into place. | Attach the neck to the shell plate by aligning the connection points and securing it in place. | Attach the fin to the main b",
+      "decision": "keep",
+      "note": "Blade/Fin are fan or turbine blades"
+    },
+    {
+      "sample_id": "6216",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Blades",
+        "Blades",
+        "Blades",
+        "Blades",
+        "Blades"
+      ],
+      "manual": "Place blades in the center. | Attach the blade to the designated position on the hub. | Attach the blade to the center hub as shown. | Attach the blade to the central hub by fitting it securely into the corresponding slot. | Attach the blade to the central hub by aligning its base with the corresponding slot and securing it in place.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "6221",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Grip Spacer",
+        "Blade Assembly",
+        "Handle Body",
+        "Guard Block",
+        "End Cap"
+      ],
+      "manual": "Place guard block to the center. | Attach the guard block to the assembly as shown. | Attach the guard block to the designated location as shown in the diagram. | Attach the guard block to the blade assembly as shown. | Attach the handle body to the blade assembly, ensuring they are securely aligned at the connection point.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "6327",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Cover Disc",
+        "Insert Ring",
+        "Core Blade"
+      ],
+      "manual": "Place core blade in the center. | Insert the ring onto the core blade. | Place the cover disc onto the center of the assembly, ensuring it fits securely over the core blade.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "6772",
+      "terms": [
+        "barrel",
+        "scope"
+      ],
+      "parts": [
+        "Frame",
+        "Handle",
+        "Base",
+        "Rod",
+        "Guard",
+        "Barrel",
+        "Tip",
+        "Scope"
+      ],
+      "manual": "Place guard in the center. | Slide the barrel into position as shown in the diagram. | Insert the rod into the main assembly as shown. | Attach the scope to the top of the assembly. | Attach the handle to the main assembly as shown. | Attach the base to the assembly as shown. | Attach the frame to begin constructing the assembly. | Attach the tip to the end of the rod.",
+      "decision": "exclude"
+    },
+    {
+      "sample_id": "735",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Core",
+        "Blades",
+        "Blades",
+        "Blades"
+      ],
+      "manual": "Place core in the center. | Attach the blade to the core by aligning the blade and securing it in place as shown. | Attach the blade to the core by aligning the mounting points and securing it in place. | Attach the blade to the core by aligning the mounting holes and securing it in place.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "7636",
+      "terms": [
+        "barrel"
+      ],
+      "parts": [
+        "Grip Band",
+        "Closure Ring",
+        "Barrel"
+      ],
+      "manual": "Place closure ring to the center. | Slide the closure ring over the open end of the barrel until it fits securely in place. | Attach the grip band to the end of the barrel.",
+      "decision": "unreviewed"
+    },
+    {
+      "sample_id": "7903",
+      "terms": [
+        "blade"
+      ],
+      "parts": [
+        "Blade",
+        "Blade",
+        "Handle",
+        "Pivot Screw",
+        "Connector Pin",
+        "Handle",
+        "Handle"
+      ],
+      "manual": "Place blade to the center. | Attach the second blade to the assembly by aligning it with the first blade at the central pivot point. | Attach the handle to the corresponding slot on the main assembly. | Install the pivot screw through the holes in the blades to secure them together. | Insert the connector pin through the aligned holes of the handle and blade. | Attach the handle to the correspondi",
+      "decision": "unreviewed"
+    }
+  ]
+}

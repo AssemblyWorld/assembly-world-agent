@@ -1,0 +1,1319 @@
+{
+  "benchmark": "assemblyworldbench-v1",
+  "version": 1,
+  "seed": 0,
+  "selection_protocol": {
+    "version": "benchmark-selection-v1",
+    "key": "stable_rng(seed, \"benchmark-selection\", selection, attempt, sample_id).random()",
+    "allocation": "largest remainder proportional to category pool size, ties by label; categories with at least `minimum_category_size` samples receive at least one slot, taken from the largest allocation",
+    "bands": "part-count bands cut at the n/3 and 2n/3 order statistics of the eligible pool (per category when cuts_by is 'category'); equal cuts collapse into fewer bands",
+    "constraints": [
+      {
+        "type": "band_balance",
+        "selection": "partnet-manualpa",
+        "target": [
+          7,
+          7,
+          6
+        ]
+      },
+      {
+        "type": "band_balance",
+        "selection": "ikea-manual",
+        "target": [
+          7,
+          7,
+          6
+        ]
+      },
+      {
+        "type": "band_balance",
+        "selection": "assemblybench",
+        "target": [
+          7,
+          7,
+          6
+        ]
+      },
+      {
+        "type": "pooled_band_balance",
+        "selections": [
+          "partnet-manualpa",
+          "ikea-manual",
+          "assemblybench"
+        ]
+      }
+    ],
+    "max_attempts": 1000
+  },
+  "exclusions": {
+    "sha256": "51175144c1178dcbf2a12fb8c948a29b83facf6866e9fd8a362580926f03a0d7",
+    "applied": {
+      "partnet-manualpa": [],
+      "ikea-manual": [],
+      "assemblybench": [
+        "5292",
+        "6772"
+      ],
+      "fantastic-breaks": []
+    }
+  },
+  "selections": {
+    "partnet-manualpa": {
+      "dataset": "partnet-manualpa",
+      "repo_id": "AssemblyWorld/partnet-manualpa",
+      "revision": "e79907b38a868589184063debd9727e59f480cf3",
+      "config_id": "prep-v1-s0-i0-987553cbcd58",
+      "identity_sha256": "987553cbcd58972c87d820720b65110800fe56b4199605331e216e81d4ca7345",
+      "sources": [
+        {
+          "category": "chair",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "paired": {
+            "final-image": "data/partnet-manualpa-test/chair-final-image"
+          }
+        },
+        {
+          "category": "table",
+          "data": "data/partnet-manualpa-test/table-none",
+          "paired": {
+            "final-image": "data/partnet-manualpa-test/table-final-image"
+          }
+        },
+        {
+          "category": "storage",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "paired": {
+            "final-image": "data/partnet-manualpa-test/storage-final-image"
+          }
+        }
+      ],
+      "category_rule": null,
+      "difficulty": {
+        "axis": "parts",
+        "bands": 3,
+        "cuts_by": "category"
+      },
+      "pool_size": 1472,
+      "excluded": 0,
+      "eligible": 1472,
+      "quota": 20,
+      "category_quota": {
+        "chair": 7,
+        "storage": 6,
+        "table": 7
+      },
+      "cuts": {
+        "chair": [
+          9,
+          12
+        ],
+        "storage": [
+          11,
+          15
+        ],
+        "table": [
+          6,
+          10
+        ]
+      },
+      "attempt": 5,
+      "trials": 6,
+      "band_counts": {
+        "high": 7,
+        "low": 6,
+        "mid": 7
+      },
+      "constraints": [
+        {
+          "type": "band_balance",
+          "ok": true,
+          "detail": "bands {'high': 7, 'low': 6, 'mid': 7}"
+        }
+      ],
+      "selected": [
+        {
+          "sample_id": "21905",
+          "category": "table",
+          "parts": 13,
+          "band": "high",
+          "episode_id": "awa-82d65585c130400a74dd3f50c8cd2de93044cb8c66f6212cb55abe3e9bdb4fb5",
+          "sha256": "64df057d8c24eff1dc73637364bbf08c2d7c162d9ab2e160c3d29f4cd3b9bf1f",
+          "data": "data/partnet-manualpa-test/table-none",
+          "key": 0.01480227478834073
+        },
+        {
+          "sample_id": "22320",
+          "category": "table",
+          "parts": 13,
+          "band": "high",
+          "episode_id": "awa-ea698530eb883176da6230c0e2938712eda57e921097561e8ae6796dab301040",
+          "sha256": "8ca72925c1d21a760ac8a200d8c8abf8c1e66f83a0095ce264c83f8d1a0da596",
+          "data": "data/partnet-manualpa-test/table-none",
+          "key": 0.008718804546486547
+        },
+        {
+          "sample_id": "23108",
+          "category": "table",
+          "parts": 9,
+          "band": "mid",
+          "episode_id": "awa-462f292a2a96be9bbed278e77a2452d971e0af349ce943cce8474ea43d6bce21",
+          "sha256": "04b89cd6df928d408e3a942baeb67ac2ead1c9935b71e70788081fdd8934fb4b",
+          "data": "data/partnet-manualpa-test/table-none",
+          "key": 0.0036926167299675683
+        },
+        {
+          "sample_id": "23814",
+          "category": "table",
+          "parts": 11,
+          "band": "high",
+          "episode_id": "awa-0ccd823928e038101286a776378976a8ba84c3cbe54498e0addcc441efaee260",
+          "sha256": "baebf86193731d634fd280442ff3eeaf54c673801a8f1068b18aef859abfcae7",
+          "data": "data/partnet-manualpa-test/table-none",
+          "key": 0.011922840478488683
+        },
+        {
+          "sample_id": "23890",
+          "category": "table",
+          "parts": 9,
+          "band": "mid",
+          "episode_id": "awa-ea4fb2003dd92c14352e018ddca4dc7a79e4e684d67088a5ad325926f33c033f",
+          "sha256": "731fc3d8eb1007a75a8035d94d314582fcf662341f0f8734d2706913f8f1c5ae",
+          "data": "data/partnet-manualpa-test/table-none",
+          "key": 0.010832375844088915
+        },
+        {
+          "sample_id": "23920",
+          "category": "table",
+          "parts": 11,
+          "band": "high",
+          "episode_id": "awa-afcf963bb0f1da43b84b0dc4d8f0f866692b924486d4da5c544bc439e697ea9f",
+          "sha256": "11105edbf7d61aade03d9920aa2b8fcf6b11e50f706e048647bd7a13fcffa50c",
+          "data": "data/partnet-manualpa-test/table-none",
+          "key": 0.008879356890638235
+        },
+        {
+          "sample_id": "24754",
+          "category": "table",
+          "parts": 6,
+          "band": "low",
+          "episode_id": "awa-6d97065712bd9373fc75622ee12e4c6f379797fb56a8cd142fc474939dee4f09",
+          "sha256": "86bdb1b274179a66ba0066250dcdf0438a10553e273fb561ddb3cd6599fc22b1",
+          "data": "data/partnet-manualpa-test/table-none",
+          "key": 0.0038053842414103034
+        },
+        {
+          "sample_id": "2738",
+          "category": "chair",
+          "parts": 13,
+          "band": "high",
+          "episode_id": "awa-2594361e749531fd2218b3d702ee25e7b096d583587852c38cc9e28d2f64fe09",
+          "sha256": "c83933e3f165a7d7dffb03ccb8061ca02a097bada4591e3f5fc72ddc299c81ae",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "key": 0.0016063697775920982
+        },
+        {
+          "sample_id": "36492",
+          "category": "chair",
+          "parts": 5,
+          "band": "low",
+          "episode_id": "awa-e09f2fb3eeb733c0b1af103ded166d576e25fefe6c7d1797add31541fa00126c",
+          "sha256": "0e91062852d144dc863789c6d00642dd67d961bf04686d7cba0f2db30cbc3189",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "key": 0.001018608012403388
+        },
+        {
+          "sample_id": "37433",
+          "category": "chair",
+          "parts": 13,
+          "band": "high",
+          "episode_id": "awa-a72b972e9ef5f08afdce5ed466730bb7ebeddd06ab3d2985c9ff9f555be8afa6",
+          "sha256": "3fdc58abb27e26bfc9f3b4845fee40852ce2480b1182c5e1c63f0ecbf47d5f26",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "key": 0.003529096614821814
+        },
+        {
+          "sample_id": "40074",
+          "category": "chair",
+          "parts": 11,
+          "band": "mid",
+          "episode_id": "awa-73020b61fd56b34d4a661ee6b2ba68c0f2bdeb898f532d8e68a291ee46957ba1",
+          "sha256": "a1d13c6c526352483818b40cb9abea6ac8e9d32195f498c3777e139a91ec1b5b",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "key": 0.0013306443354205166
+        },
+        {
+          "sample_id": "41043",
+          "category": "chair",
+          "parts": 13,
+          "band": "high",
+          "episode_id": "awa-9c2c7b681ae24ea4d2ce3c069a17a72b5a5d821ea2835ac2d0d9371c27d5a561",
+          "sha256": "30ab7415d107549aae4f259668d25618a270b65a5ad8a23d2e0cad0d9eba2ade",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "key": 0.002040551210568453
+        },
+        {
+          "sample_id": "41673",
+          "category": "chair",
+          "parts": 8,
+          "band": "low",
+          "episode_id": "awa-6605f3956b58fcf60726056d045f80f534c5e6bd377469d804c5985ad54d76f9",
+          "sha256": "394f30a64e862224f4afc95a158716e3f55d6c5fff110eaf2f9459b1fd712aef",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "key": 0.009597753733740721
+        },
+        {
+          "sample_id": "45594",
+          "category": "storage",
+          "parts": 15,
+          "band": "mid",
+          "episode_id": "awa-c1a37277c775ebab5cfc0469b3aadd472ff6da6ba5202a3689d4a6326c8418fe",
+          "sha256": "9cd5023b2b097c542027ce1a808cc2de29d415c51344c9eb2805fdb10bb630ff",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "key": 0.00497895375229318
+        },
+        {
+          "sample_id": "45748",
+          "category": "storage",
+          "parts": 13,
+          "band": "mid",
+          "episode_id": "awa-5d5ae59592bd537fa0a29f6f493df974ec68ed9fd691744bb1fbf88dc4f50f0c",
+          "sha256": "1cec61e783ddd7771596fd8e469cd6e93280f9e4c2615fd94926cd16bd961475",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "key": 0.024858714609696575
+        },
+        {
+          "sample_id": "46475",
+          "category": "storage",
+          "parts": 11,
+          "band": "low",
+          "episode_id": "awa-1757a1fc3881c87be2ec46eb5899518dfaed49c634cf8dd19916566a1ee33a46",
+          "sha256": "b2fab7c608f9ce721e59d04512982e9fdcb18dbfb33bd070237184a3d9ff3f7e",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "key": 0.04244968809442495
+        },
+        {
+          "sample_id": "48012",
+          "category": "storage",
+          "parts": 7,
+          "band": "low",
+          "episode_id": "awa-b39228ad82bd34e2768e36f072c5b02f6f05ed130983a9e3150ab8016438b3b3",
+          "sha256": "6ecbcb85cdca1674eb2e9b5635553e9d994b229df58790200af5feae55f22328",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "key": 0.0065114150952475525
+        },
+        {
+          "sample_id": "48227",
+          "category": "storage",
+          "parts": 15,
+          "band": "mid",
+          "episode_id": "awa-21afe50a5544e7e9f69e5bca3d8bcba11ad59890e4a79238058c93eb1f805f88",
+          "sha256": "fd9fec1a06729cd58a8f5ff7046b95221bb7f6fc39b5af472ef82af4f828c370",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "key": 0.0006351033447505872
+        },
+        {
+          "sample_id": "48820",
+          "category": "storage",
+          "parts": 14,
+          "band": "mid",
+          "episode_id": "awa-defa05234ed733efd681f0ead3aab30e9bd6be06b88090f08bb8fe2cd4587209",
+          "sha256": "88cedf94982db940aa720e5920af39919a7f9a26e682c2628e253e04607c9a65",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "key": 0.008219668971836125
+        },
+        {
+          "sample_id": "743",
+          "category": "chair",
+          "parts": 8,
+          "band": "low",
+          "episode_id": "awa-0421c472f1dd14d53a50451159284f9d60fb4879609ca65abf2c04bc7e3145f0",
+          "sha256": "1cf4c3dc4a9e46121155b1138432e135adaa101999b98ecf996662221dd0dee5",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "key": 0.006312219295818267
+        }
+      ]
+    },
+    "ikea-manual": {
+      "dataset": "ikea-manual",
+      "repo_id": "AssemblyWorld/ikea-manual",
+      "revision": "d2367e6f86610d38f2d2cc65278f680c9a444d83",
+      "config_id": "prep-v1-s0-i0-823ea008b2b1",
+      "identity_sha256": "823ea008b2b12e0aa60947dc84e10456f713651da61e61de391117b016f909c9",
+      "sources": [
+        {
+          "data": "data"
+        }
+      ],
+      "category_rule": "id-prefix",
+      "difficulty": {
+        "axis": "parts",
+        "bands": 3,
+        "cuts_by": "pool"
+      },
+      "pool_size": 102,
+      "excluded": 0,
+      "eligible": 102,
+      "quota": 20,
+      "category_quota": {
+        "Bench": 1,
+        "Chair": 11,
+        "Desk": 1,
+        "Misc": 2,
+        "Shelf": 1,
+        "Table": 4
+      },
+      "cuts": {
+        "*": [
+          6,
+          8
+        ]
+      },
+      "attempt": 9,
+      "trials": 10,
+      "band_counts": {
+        "high": 7,
+        "low": 7,
+        "mid": 6
+      },
+      "constraints": [
+        {
+          "type": "band_balance",
+          "ok": true,
+          "detail": "bands {'high': 7, 'low': 7, 'mid': 6}"
+        }
+      ],
+      "selected": [
+        {
+          "sample_id": "Bench/sjalland",
+          "category": "Bench",
+          "parts": 4,
+          "band": "low",
+          "episode_id": "awa-cb5ddd0216b6dd4f2df13b452f30a26e8b02078efe883bddd54c30b221a0191a",
+          "sha256": "59b9ef8fc4b079d464abca7a8e500266dd1aaa306a9d65f5f0166d3a1b5abd46",
+          "data": "data",
+          "key": 0.04764795184728232
+        },
+        {
+          "sample_id": "Chair/falholmen",
+          "category": "Chair",
+          "parts": 7,
+          "band": "mid",
+          "episode_id": "awa-26160e7a4999961714674fd91e1366697fa0799d61fdccd315824f2cdad8881a",
+          "sha256": "28058d27f3afb68288b82c7f19205c84e994374d270e196599c519d2331d932f",
+          "data": "data",
+          "key": 0.21980167368995285
+        },
+        {
+          "sample_id": "Chair/fanbyn",
+          "category": "Chair",
+          "parts": 7,
+          "band": "mid",
+          "episode_id": "awa-9c2ba4b3ec3c478e6b11241ac4aa7e727b6c144ccdd7383f3db40ad094207eaa",
+          "sha256": "eaddc3b2f95803aa9a09362fd16de4ffdcea811fccc07e5aa0c007432c89793a",
+          "data": "data",
+          "key": 0.016509998729928532
+        },
+        {
+          "sample_id": "Chair/grubban",
+          "category": "Chair",
+          "parts": 6,
+          "band": "low",
+          "episode_id": "awa-aa505ce76a45ce424cf37afd6bd66626c9a211d6517da6cecb65c39af49710ce",
+          "sha256": "5ade7aa96816507ecd65135265e2cd71b63b51ad2592491fc5feb55a2d3e1142",
+          "data": "data",
+          "key": 0.14111403129758382
+        },
+        {
+          "sample_id": "Chair/jokkmokk",
+          "category": "Chair",
+          "parts": 8,
+          "band": "mid",
+          "episode_id": "awa-371dab81b831c689194d6a20455fb7e554ce00247850852c0ebab3661ff996a8",
+          "sha256": "a3639b68185ad6ed60e39eeaa39603030c3076bad8d665475a84af99cddbe82f",
+          "data": "data",
+          "key": 0.0617574649061432
+        },
+        {
+          "sample_id": "Chair/jules_1",
+          "category": "Chair",
+          "parts": 8,
+          "band": "mid",
+          "episode_id": "awa-aded57e282bf46311295af7370008f819b1b9d229523b7cb93215a90a909ee9e",
+          "sha256": "1c69940eb6480e2cf46bb1071c47843c4ec649c44e2259337a234e64f1524e7b",
+          "data": "data",
+          "key": 0.09195561051740264
+        },
+        {
+          "sample_id": "Chair/nilsove",
+          "category": "Chair",
+          "parts": 5,
+          "band": "low",
+          "episode_id": "awa-b3385ee5766bb39f2ad73fddcde43707c9d36b0c8c4e809e66b9d99336ece317",
+          "sha256": "2e61c77da0759c9a09247680713e67b70996c5bf3f00026df0033daa09102c55",
+          "data": "data",
+          "key": 0.1595478812939416
+        },
+        {
+          "sample_id": "Chair/nordviken",
+          "category": "Chair",
+          "parts": 7,
+          "band": "mid",
+          "episode_id": "awa-0e93003951e7c98aca01f266fd266d9ddc2b883266e4fa577f4061322c21aa16",
+          "sha256": "c272953df5f68ec591487da754710ae2c2f87bca66269eb56012404db181d08b",
+          "data": "data",
+          "key": 0.15699776843208613
+        },
+        {
+          "sample_id": "Chair/ragrund",
+          "category": "Chair",
+          "parts": 11,
+          "band": "high",
+          "episode_id": "awa-d9b28fc18b5bf908fa54c1c3fb544497115a2df0c8838661695fb0f3392079c8",
+          "sha256": "198e35e4d0eab4f26022286a4f570d3e2db5e4c889f299fabe1cb5292bc1864b",
+          "data": "data",
+          "key": 0.10199482681553873
+        },
+        {
+          "sample_id": "Chair/reidar",
+          "category": "Chair",
+          "parts": 6,
+          "band": "low",
+          "episode_id": "awa-3837be1dcd4ba75662dc27bacad1478caa743a6d8fc4391180b98103eec2391f",
+          "sha256": "c352fa2cf72b7cd6b7024374c9d79d095627dd5907d1ae70d3ea18823c31aa04",
+          "data": "data",
+          "key": 0.10398648172197322
+        },
+        {
+          "sample_id": "Chair/voxlov",
+          "category": "Chair",
+          "parts": 6,
+          "band": "low",
+          "episode_id": "awa-1a62746abe870fe81edc6f458b25943bd258868eb7a83bf63750eaf88494e208",
+          "sha256": "bc533721e9af62f7515e6fb29c3b61c50317869519ced76e095e1aabd4d3e80b",
+          "data": "data",
+          "key": 0.07534317018750925
+        },
+        {
+          "sample_id": "Chair/yngvar",
+          "category": "Chair",
+          "parts": 3,
+          "band": "low",
+          "episode_id": "awa-949fe8b249f8d4dae120e0a8ae35186fb5abf03d6c009e4d6f4c1c1a28a593cc",
+          "sha256": "4e7657487ed47c23f14a1f16e466500afb1ab66d7613090ab5406951a728e000",
+          "data": "data",
+          "key": 0.09030954163542126
+        },
+        {
+          "sample_id": "Desk/fredrik",
+          "category": "Desk",
+          "parts": 7,
+          "band": "mid",
+          "episode_id": "awa-5e37e69155f28c26c22ec23f8d64b9d3d910f958a68a365d0517ff2205caf287",
+          "sha256": "57a261247345579d219707395b4c0d453f010649b5fe3219f9698aa926201af5",
+          "data": "data",
+          "key": 0.4106217998831766
+        },
+        {
+          "sample_id": "Misc/smussla",
+          "category": "Misc",
+          "parts": 11,
+          "band": "high",
+          "episode_id": "awa-704ab0c0695534d103760813c43927263fe120cbb05ab7c19e47593aec3f5880",
+          "sha256": "f4826fa940fb7ff4ee78a60f06700097e01f2a0a3256ad367af235c844bf43fb",
+          "data": "data",
+          "key": 0.006351451427026089
+        },
+        {
+          "sample_id": "Misc/vittsjo",
+          "category": "Misc",
+          "parts": 10,
+          "band": "high",
+          "episode_id": "awa-ba5317a8b7b1cd151b365524a4c2c02a26845da3fd9ca384b2e8abe493ffea92",
+          "sha256": "5dd3fe97c9bba0324294f3531b9a928eb99c78a75c64cf092def2a3c21b624a3",
+          "data": "data",
+          "key": 0.15229488256203505
+        },
+        {
+          "sample_id": "Shelf/laiva",
+          "category": "Shelf",
+          "parts": 19,
+          "band": "high",
+          "episode_id": "awa-69bf95fab5c49037aa5be786ba4e3a25692a84331365ac8cdd2a97226f33e4ff",
+          "sha256": "9600ec193e5e28bd860da9a2a4898648fd371e42c142ce0f53b9813fab2b906a",
+          "data": "data",
+          "key": 0.2972000073166209
+        },
+        {
+          "sample_id": "Table/bjorkudden",
+          "category": "Table",
+          "parts": 9,
+          "band": "high",
+          "episode_id": "awa-0d9a4d312b04a04a6843da16d22a7e5fb6a03a4b79e88822c688d206e9ffe88a",
+          "sha256": "cc204c525164de2176911878414dd84dbaa09af42a94458a90b67f4cd4d09709",
+          "data": "data",
+          "key": 0.1957926264082791
+        },
+        {
+          "sample_id": "Table/nesna",
+          "category": "Table",
+          "parts": 12,
+          "band": "high",
+          "episode_id": "awa-4a75404a22960fd592bd883b2b17e4588fabda0ec4ae70e56f2dd4a567117063",
+          "sha256": "7e514c82b44069b6522b25e00ea1940e0eb60ad64473340d6aa47c45c6662262",
+          "data": "data",
+          "key": 0.04298447684771578
+        },
+        {
+          "sample_id": "Table/tommaryd",
+          "category": "Table",
+          "parts": 12,
+          "band": "high",
+          "episode_id": "awa-f59f692534c0be474c0f7420a691ba756223f132a14967f6fa9792d2591f3141",
+          "sha256": "fd2347297a1e2c1a57fd1734f25bacd7ad6af380d38df234c3b53668e33ed8c6",
+          "data": "data",
+          "key": 0.19487657081263332
+        },
+        {
+          "sample_id": "Table/voxlov",
+          "category": "Table",
+          "parts": 5,
+          "band": "low",
+          "episode_id": "awa-ba0843b2bd8b4354b985330b91175b00d97dddf49e1a0b05beaac1ac1e9c00a2",
+          "sha256": "cb7e9d4e0fa0b7e9d44601f50e12f2e6fd89f5c94a248798821876d1d87aa741",
+          "data": "data",
+          "key": 0.11667037948333259
+        }
+      ]
+    },
+    "assemblybench": {
+      "dataset": "assemblybench",
+      "repo_id": "AssemblyWorld/assemblybench",
+      "revision": "266e883e1676af42c44c41484c77b662b987b966",
+      "config_id": "prep-v1-s0-i0-5201fd352313",
+      "identity_sha256": "5201fd352313dc8da6d56937208aefd19a2b2dfce93d62776e80d90c1c6ec649",
+      "sources": [
+        {
+          "data": "data"
+        }
+      ],
+      "category_rule": null,
+      "difficulty": {
+        "axis": "parts",
+        "bands": 3,
+        "cuts_by": "pool"
+      },
+      "pool_size": 280,
+      "excluded": 2,
+      "eligible": 278,
+      "quota": 20,
+      "category_quota": null,
+      "cuts": {
+        "*": [
+          4,
+          7
+        ]
+      },
+      "attempt": 2,
+      "trials": 3,
+      "band_counts": {
+        "high": 6,
+        "low": 7,
+        "mid": 7
+      },
+      "constraints": [
+        {
+          "type": "band_balance",
+          "ok": true,
+          "detail": "bands {'high': 6, 'low': 7, 'mid': 7}"
+        }
+      ],
+      "selected": [
+        {
+          "sample_id": "1386",
+          "category": null,
+          "parts": 13,
+          "band": "high",
+          "episode_id": "awa-5186e185bf90d2d2f7e477986999d8a05663ae01c80800a531c7aa29e6382fce",
+          "sha256": "aad66440ac22ff7eb0dfdfc58f8b1fd04678da701ba61f86f30dd2e180178db6",
+          "data": "data",
+          "key": 0.0555788668625562
+        },
+        {
+          "sample_id": "1874",
+          "category": null,
+          "parts": 7,
+          "band": "mid",
+          "episode_id": "awa-67d1fabd418e79efacf243b43942fa310b7e6a6957e08aa6e9f5b1552404e528",
+          "sha256": "394a0ea7eae8d6d23b8f216545097e47a7781c12f29234b91d23796ef6ae7862",
+          "data": "data",
+          "key": 0.08025645848658836
+        },
+        {
+          "sample_id": "2490",
+          "category": null,
+          "parts": 10,
+          "band": "high",
+          "episode_id": "awa-d7801b3876a115cdc5dbd4f7a6ebfa252f839707ce28ad0e03a360c1c494dd25",
+          "sha256": "efc7017b33333515372f39a796879e0fd915c0904e5ce82a69712aa70acaa4e4",
+          "data": "data",
+          "key": 0.037868940162818276
+        },
+        {
+          "sample_id": "2786",
+          "category": null,
+          "parts": 5,
+          "band": "mid",
+          "episode_id": "awa-a6d17d936e58ffc520f24f9b33682210ceb2b09ca6133b1a32a1b4e3aca9c3df",
+          "sha256": "acf8953e77e40eeac30ec1bf0e7ca204f8a588afcfc4fcb6ac546910080c2a15",
+          "data": "data",
+          "key": 0.01494404495357482
+        },
+        {
+          "sample_id": "3277",
+          "category": null,
+          "parts": 5,
+          "band": "mid",
+          "episode_id": "awa-2db5a22d0aec7aff79ec1e6ab51616bcc3485a05f3a443a4a0fcad35902958bf",
+          "sha256": "1463d9a57f847a0b964ebd03490a145e90e0c5419aed5118574337008d154a7b",
+          "data": "data",
+          "key": 0.0529699717837927
+        },
+        {
+          "sample_id": "3546",
+          "category": null,
+          "parts": 3,
+          "band": "low",
+          "episode_id": "awa-870ede376368f44b8c76043dd90b437e32c2b39e76a158093d6b9df331337984",
+          "sha256": "6d61a211c558e128f029acb0c69540116b844db0e5757716396609f75a5cb409",
+          "data": "data",
+          "key": 0.0011379118247288877
+        },
+        {
+          "sample_id": "3959",
+          "category": null,
+          "parts": 3,
+          "band": "low",
+          "episode_id": "awa-4e5049ac3412e824287d6d5e127647f2c12969260711959cde04f01184c4bdd9",
+          "sha256": "e67ebd9ad941c5915386f9b3dee6abfa97ba8767b02fe78f2be48fe9eded5a65",
+          "data": "data",
+          "key": 0.06565492094855974
+        },
+        {
+          "sample_id": "4451",
+          "category": null,
+          "parts": 3,
+          "band": "low",
+          "episode_id": "awa-7f5873a7b2791df4a72f4bbec41a1f32f286e6ed72923b29272ba1bb9efd615d",
+          "sha256": "418531c02cb1c14e8ceb4d2af421118e685b7aeb9ce5988ae75c4a8346042152",
+          "data": "data",
+          "key": 0.009073760304630696
+        },
+        {
+          "sample_id": "4492",
+          "category": null,
+          "parts": 7,
+          "band": "mid",
+          "episode_id": "awa-3052a01d25198331d843fdd8c2ff285900e84cd549301c0898cd7a3c1f78415f",
+          "sha256": "5533d98cef42d6ba7e5ec58a1b1b228243489c75f5b099271e576f57544eab19",
+          "data": "data",
+          "key": 0.06773598097855738
+        },
+        {
+          "sample_id": "4820",
+          "category": null,
+          "parts": 6,
+          "band": "mid",
+          "episode_id": "awa-5c4979ff40c75f8596e1641db6d669c80b1c96980305c327a8eff2255c02ebed",
+          "sha256": "f746e83803d4d6a83ff2f9d56fe16975c842b0884f852d5be4eb45578cd39cc9",
+          "data": "data",
+          "key": 0.01582135321134237
+        },
+        {
+          "sample_id": "5999",
+          "category": null,
+          "parts": 4,
+          "band": "low",
+          "episode_id": "awa-581f45ff9a0f72f7b25c073be7c8651b92174d5475222779c55164dfd60686ce",
+          "sha256": "13863e423bdadf9a74b95e1e391205b64bc72f3157bde58d118570e51c7ca4a7",
+          "data": "data",
+          "key": 0.06261350714820069
+        },
+        {
+          "sample_id": "603",
+          "category": null,
+          "parts": 13,
+          "band": "high",
+          "episode_id": "awa-07f19697a65c4ca8d30f69d79c2ded9691d769f7088c53ff42312beb4fb16a79",
+          "sha256": "b0718e48bd6cef6a65d3c52f4043ee05e0bae197eb027dbd2e06988607eae255",
+          "data": "data",
+          "key": 0.07827176137132685
+        },
+        {
+          "sample_id": "6096",
+          "category": null,
+          "parts": 18,
+          "band": "high",
+          "episode_id": "awa-60ecc9788d156a4d4b208e7d140a63a38ebdbbfd374fc20a5f59867bb5e456c8",
+          "sha256": "03390242e4a45e94cd3b625837e51580ed243db47d8666d13fc77cf96b93e57f",
+          "data": "data",
+          "key": 0.06312140735515492
+        },
+        {
+          "sample_id": "7028",
+          "category": null,
+          "parts": 4,
+          "band": "low",
+          "episode_id": "awa-39f31239704fadd87bb12e384a11c61fb6fd37673ad3fe23f8adf9e3497a3119",
+          "sha256": "abf80823f7988e00100a8917f90168edb2cf145e1e08cac0a12a288de81ee736",
+          "data": "data",
+          "key": 0.026889889744196926
+        },
+        {
+          "sample_id": "7355",
+          "category": null,
+          "parts": 4,
+          "band": "low",
+          "episode_id": "awa-43ea4a664af1e05acfdb0567cddd1b68e716d46f7056ea49aa0992397e59cc10",
+          "sha256": "efb41e5f7af95f60e1831bcbbda06341da439677f65064d4d935ea944d9e902e",
+          "data": "data",
+          "key": 0.056537728338951876
+        },
+        {
+          "sample_id": "7674",
+          "category": null,
+          "parts": 9,
+          "band": "high",
+          "episode_id": "awa-9e39c88649469389e0d87fe4572d2362f83c5130882fcc9207594deef91e11c7",
+          "sha256": "302ea5a8fcb474ce8d6fd318a8368d34711e2c9cc0e97644666c0502a3ba3fe7",
+          "data": "data",
+          "key": 0.08142997720927425
+        },
+        {
+          "sample_id": "7780",
+          "category": null,
+          "parts": 5,
+          "band": "mid",
+          "episode_id": "awa-315ddc1016cb19a21f71ad3ffa24abc759d9c7eb4288c29e732b17418d25155c",
+          "sha256": "745435933747351a93ef0de3bc161e85e3502c90e0ac02d41328f17858e313e4",
+          "data": "data",
+          "key": 0.060521483517486874
+        },
+        {
+          "sample_id": "7869",
+          "category": null,
+          "parts": 5,
+          "band": "mid",
+          "episode_id": "awa-79450dfd0de06b49ae423a81488f7c66c0d281738e70b4b99c23cb83444a92be",
+          "sha256": "4d2038b9d681eb639aa93fcd387e285c3dc2f6e6d1a52cc25a58f465206178f9",
+          "data": "data",
+          "key": 0.03882348490533871
+        },
+        {
+          "sample_id": "8225",
+          "category": null,
+          "parts": 4,
+          "band": "low",
+          "episode_id": "awa-9a89dced8032ac8c5b179f8f926e7d071edd03ae2bafa9346403e82204145425",
+          "sha256": "58150ad7a578d0ff2412ebf57281e29ac64f585479ef15c3c6308ec1b4cac3f4",
+          "data": "data",
+          "key": 0.042799656573633826
+        },
+        {
+          "sample_id": "8243",
+          "category": null,
+          "parts": 13,
+          "band": "high",
+          "episode_id": "awa-ef697242cdfa5d1ce00b0e02171c717a30db3c70a3d6cc890e8cf94b379d0069",
+          "sha256": "3fc78a9e5112b386102615df307d10ded77dc42e4ddeb03e60ed26d7f83a7c71",
+          "data": "data",
+          "key": 0.03412021587336922
+        }
+      ]
+    },
+    "fantastic-breaks": {
+      "dataset": "fantastic-breaks",
+      "repo_id": "AssemblyWorld/fantastic-breaks",
+      "revision": "654d94e30e3cb246a04f97aab1bc4ca9f0ad0af9",
+      "config_id": "prep-v1-s0-i0-a49b9f0e6b8e",
+      "identity_sha256": "a49b9f0e6b8ef225426e85cee26813e6e21a86183aa56bafc89fcc60c6960fc9",
+      "sources": [
+        {
+          "data": "data"
+        }
+      ],
+      "category_rule": "id-prefix",
+      "difficulty": null,
+      "pool_size": 150,
+      "excluded": 0,
+      "eligible": 150,
+      "quota": 20,
+      "category_quota": {
+        "00": 3,
+        "01": 4,
+        "02": 2,
+        "03": 1,
+        "05": 1,
+        "06": 0,
+        "07": 1,
+        "09": 4,
+        "10": 0,
+        "12": 1,
+        "13": 0,
+        "14": 1,
+        "17": 0,
+        "18": 1,
+        "19": 1
+      },
+      "cuts": {
+        "*": []
+      },
+      "attempt": 0,
+      "trials": 1,
+      "band_counts": {
+        "all": 20
+      },
+      "constraints": [],
+      "selected": [
+        {
+          "sample_id": "00/00017",
+          "category": "00",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-83776be9e8060ff9c66546d7d7d0a06698e3b5ed4eb137051f31dd4968f67008",
+          "sha256": "acd971224ccd211d871988a23e888ed757de762e229db05107a6f0b665fe5465",
+          "data": "data",
+          "key": 0.143079771809698
+        },
+        {
+          "sample_id": "00/00029",
+          "category": "00",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-33a909eedd0f0d97c8ab103bf6b410bd2b34e529526caaa4c2ea3382603a8bdb",
+          "sha256": "8da2a3ee3e0303ef774504dc4a9d73cfb9ddabc14c6077c578b1a58941d1ed47",
+          "data": "data",
+          "key": 0.09796374694971322
+        },
+        {
+          "sample_id": "00/00041",
+          "category": "00",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-a6b116f767d9893f3fabba4801cbd96d60e8686489771e53c7cae80f5a1b6784",
+          "sha256": "8b979aa86ca1c8c7b6f6702d25267e50afd73d30601fd0334a13fe0c59dc2bbe",
+          "data": "data",
+          "key": 0.0406193476053619
+        },
+        {
+          "sample_id": "01/01007",
+          "category": "01",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-cdfb54e646fc7e05ea66843147e380995d73183aa037fa54c67689f882bc9cf8",
+          "sha256": "6f14e0d17d62cb3c2a42b75d0507c3d84824deac8ff92f0df7fcff6196ab4215",
+          "data": "data",
+          "key": 0.016986651026049016
+        },
+        {
+          "sample_id": "01/01012",
+          "category": "01",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-aaa6caf71c8dcbd19881bde85365c57fbdf9c1f26d299d9f3d2c32f7943757d3",
+          "sha256": "d8205ffa44aae035babe132ad55a6172e6bc6a5b7d97cd3718dc1b51efd7ce83",
+          "data": "data",
+          "key": 0.008280996403463137
+        },
+        {
+          "sample_id": "01/01016",
+          "category": "01",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-071201cbd060e8ae9d784fb04606891c41a51a0f32bacc855a2c7a0ef7529736",
+          "sha256": "e74dc2df160bbaa4bfa6ce84648dfdbf93b1f314df565409d6d19077bc656216",
+          "data": "data",
+          "key": 0.0031221504475029693
+        },
+        {
+          "sample_id": "01/01039",
+          "category": "01",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-65bb88dc2b4cad7f1210d6f5b0ff8aa20d23787b16904716b63124fae5240ed6",
+          "sha256": "1d07e08b804f6781898807c701f6497c619ef1767e68a0642270d5b8c2f354de",
+          "data": "data",
+          "key": 0.0032941524262457555
+        },
+        {
+          "sample_id": "02/02002",
+          "category": "02",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-e8f85c20a0af9f5b11291503a0486282770f2def835c46e5959ac917fd779105",
+          "sha256": "abf49ceeb92daa4edcbe0d61981d79d0552bd63119f970b23969adc91ac92d1b",
+          "data": "data",
+          "key": 0.16115420660811652
+        },
+        {
+          "sample_id": "02/02007",
+          "category": "02",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-f1cb6bdd364b1a9e72d05fc932efedd07ada138a6c53bbd6e199f68494b88f09",
+          "sha256": "d070a85a77aa667151f8652ec17f9f8ed3c32c8cd9fef623af37c3978e46561d",
+          "data": "data",
+          "key": 0.14877039405707215
+        },
+        {
+          "sample_id": "03/03000",
+          "category": "03",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-8474a32090f81725c9be604d0b0781c46c9993c66156c3506d4fcc2ca85a0ea2",
+          "sha256": "a1a5e30d2b294e95df687040e12ccaf3bc930b6773af4975b3705d205a6b76ec",
+          "data": "data",
+          "key": 0.18736424520779893
+        },
+        {
+          "sample_id": "05/05005",
+          "category": "05",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-3fd9ece64279b6632673d5f418fcb33d69d46786fbefa441abbd59291f5a1994",
+          "sha256": "7b74656edd95a78455169e0aa329004227f11c347b1cb4918bf0dbc983b2404f",
+          "data": "data",
+          "key": 0.07556084345833736
+        },
+        {
+          "sample_id": "07/07004",
+          "category": "07",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-94ee3c8d76ad5689aee7d7ac8519f988279faef6e697a3e4b6e27641818ceed7",
+          "sha256": "14d914e3c2eadcf50dfbd12d2453e8f4c63a0c931177cd0f21039ef448a4c596",
+          "data": "data",
+          "key": 0.14542624050935626
+        },
+        {
+          "sample_id": "09/09000",
+          "category": "09",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-f1b354af4161fce889b05294ec5c42fea7c421c885534f62980029f5b4e5a3ce",
+          "sha256": "0424687839a534a340f722bfc03f9b885d532b2e8158bef959ddaa3365ecdef5",
+          "data": "data",
+          "key": 0.020386932454064755
+        },
+        {
+          "sample_id": "09/09022",
+          "category": "09",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-742ecf667d65c9d12b4d05aa20b714fc34631897e61b660338d7404f440ed6f8",
+          "sha256": "61ee360b77a5dcaffd5e1c537c7a427c1383bd5c6f3077d266512aec80dea1cb",
+          "data": "data",
+          "key": 0.006592499642503524
+        },
+        {
+          "sample_id": "09/09028",
+          "category": "09",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-bf3283d9562e89d7869c53f68e76867c86b52f040221ae346a39ed946fe9c96b",
+          "sha256": "5966712865d006dbf77b8f6abe33ce7857769bd8feff17a348e7958f30213160",
+          "data": "data",
+          "key": 0.021709117331509487
+        },
+        {
+          "sample_id": "09/09029",
+          "category": "09",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-772ff11ab5d93b9d067d552950c5bb1452ee1390789d162282fe9b952a3a5b98",
+          "sha256": "659a32cdfbef37e27193f0338df418c4f63de8514f51e96b923fcdf0c38780c9",
+          "data": "data",
+          "key": 0.015201607258332972
+        },
+        {
+          "sample_id": "12/12004",
+          "category": "12",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-31157a00ca7a9ed2aca6c395c0e6631bf132f411ae28e34ac94c3dfdf5275512",
+          "sha256": "39027b97dd26ccbd7cfbfcbac8e195912e0df29bad84b3acbbb8225c13eb4cc4",
+          "data": "data",
+          "key": 0.11406577108562321
+        },
+        {
+          "sample_id": "14/14001",
+          "category": "14",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-be6034f4131050e2283bdeb2850ba0a59bb0b15209ebc23ac9c2e158a9e31da7",
+          "sha256": "66b3c6703f7f575abd6a767176739a97d49b7a605cb442b4a839a592025743e3",
+          "data": "data",
+          "key": 0.7034648005918028
+        },
+        {
+          "sample_id": "18/18002",
+          "category": "18",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-86422db88758e7ee3c7ee8144004c681b101ca05e784aeae6bc0ad07f2b6c659",
+          "sha256": "fafda9d870de07a884a5d503dc739e02fe0b0b8fb22d985afc09b5ab4c1f1ff0",
+          "data": "data",
+          "key": 0.01901808513935055
+        },
+        {
+          "sample_id": "19/19003",
+          "category": "19",
+          "parts": 2,
+          "band": "all",
+          "episode_id": "awa-296ee0c10b89a41a583968cee45a5ab0a998c788d896744c474a0f6c9c4fbf11",
+          "sha256": "2ae4dd077a8859ccec57c0c173e480045a1fdcc22552c1ca24c7c7f0ea8caf63",
+          "data": "data",
+          "key": 0.10891366241119105
+        }
+      ]
+    }
+  },
+  "global_constraints": [
+    {
+      "type": "pooled_band_balance",
+      "ok": true,
+      "detail": "pooled {'high': 20, 'low': 20, 'mid': 20}"
+    }
+  ],
+  "redraw_history": [],
+  "blocks": [
+    {
+      "name": "partnet-none",
+      "selection": "partnet-manualpa",
+      "reference_mode": "none",
+      "paired": false,
+      "runs": [
+        {
+          "name": "partnet-none--chair",
+          "dataset": "partnet-manualpa",
+          "config_id": "prep-v1-s0-i0-987553cbcd58",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "sample_ids": [
+            "2738",
+            "36492",
+            "37433",
+            "40074",
+            "41043",
+            "41673",
+            "743"
+          ]
+        },
+        {
+          "name": "partnet-none--table",
+          "dataset": "partnet-manualpa",
+          "config_id": "prep-v1-s0-i0-987553cbcd58",
+          "data": "data/partnet-manualpa-test/table-none",
+          "sample_ids": [
+            "21905",
+            "22320",
+            "23108",
+            "23814",
+            "23890",
+            "23920",
+            "24754"
+          ]
+        },
+        {
+          "name": "partnet-none--storage",
+          "dataset": "partnet-manualpa",
+          "config_id": "prep-v1-s0-i0-987553cbcd58",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "sample_ids": [
+            "45594",
+            "45748",
+            "46475",
+            "48012",
+            "48227",
+            "48820"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "partnet-final-image",
+      "selection": "partnet-manualpa",
+      "reference_mode": "final-image",
+      "paired": true,
+      "runs": [
+        {
+          "name": "partnet-final-image--chair",
+          "dataset": "partnet-manualpa",
+          "config_id": "prep-v1-s0-i0-987553cbcd58",
+          "data": "data/partnet-manualpa-test/chair-final-image",
+          "sample_ids": [
+            "2738",
+            "36492",
+            "37433",
+            "40074",
+            "41043",
+            "41673",
+            "743"
+          ]
+        },
+        {
+          "name": "partnet-final-image--table",
+          "dataset": "partnet-manualpa",
+          "config_id": "prep-v1-s0-i0-987553cbcd58",
+          "data": "data/partnet-manualpa-test/table-final-image",
+          "sample_ids": [
+            "21905",
+            "22320",
+            "23108",
+            "23814",
+            "23890",
+            "23920",
+            "24754"
+          ]
+        },
+        {
+          "name": "partnet-final-image--storage",
+          "dataset": "partnet-manualpa",
+          "config_id": "prep-v1-s0-i0-987553cbcd58",
+          "data": "data/partnet-manualpa-test/storage-final-image",
+          "sample_ids": [
+            "45594",
+            "45748",
+            "46475",
+            "48012",
+            "48227",
+            "48820"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ikea-manualbook",
+      "selection": "ikea-manual",
+      "reference_mode": "manualbook",
+      "paired": false,
+      "runs": [
+        {
+          "name": "ikea-manualbook--all",
+          "dataset": "ikea-manual",
+          "config_id": "prep-v1-s0-i0-823ea008b2b1",
+          "data": "data",
+          "sample_ids": [
+            "Bench/sjalland",
+            "Chair/falholmen",
+            "Chair/fanbyn",
+            "Chair/grubban",
+            "Chair/jokkmokk",
+            "Chair/jules_1",
+            "Chair/nilsove",
+            "Chair/nordviken",
+            "Chair/ragrund",
+            "Chair/reidar",
+            "Chair/voxlov",
+            "Chair/yngvar",
+            "Desk/fredrik",
+            "Misc/smussla",
+            "Misc/vittsjo",
+            "Shelf/laiva",
+            "Table/bjorkudden",
+            "Table/nesna",
+            "Table/tommaryd",
+            "Table/voxlov"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "assemblybench-manualbook",
+      "selection": "assemblybench",
+      "reference_mode": "manualbook",
+      "paired": false,
+      "runs": [
+        {
+          "name": "assemblybench-manualbook--all",
+          "dataset": "assemblybench",
+          "config_id": "prep-v1-s0-i0-5201fd352313",
+          "data": "data",
+          "sample_ids": [
+            "1386",
+            "1874",
+            "2490",
+            "2786",
+            "3277",
+            "3546",
+            "3959",
+            "4451",
+            "4492",
+            "4820",
+            "5999",
+            "603",
+            "6096",
+            "7028",
+            "7355",
+            "7674",
+            "7780",
+            "7869",
+            "8225",
+            "8243"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fantastic-breaks-none",
+      "selection": "fantastic-breaks",
+      "reference_mode": "none",
+      "paired": false,
+      "runs": [
+        {
+          "name": "fantastic-breaks-none--all",
+          "dataset": "fantastic-breaks",
+          "config_id": "prep-v1-s0-i0-a49b9f0e6b8e",
+          "data": "data",
+          "sample_ids": [
+            "00/00017",
+            "00/00029",
+            "00/00041",
+            "01/01007",
+            "01/01012",
+            "01/01016",
+            "01/01039",
+            "02/02002",
+            "02/02007",
+            "03/03000",
+            "05/05005",
+            "07/07004",
+            "09/09000",
+            "09/09022",
+            "09/09028",
+            "09/09029",
+            "12/12004",
+            "14/14001",
+            "18/18002",
+            "19/19003"
+          ]
+        }
+      ]
+    }
+  ],
+  "evaluation": {
+    "protocol": "assembly-evaluation-v2",
+    "similarity_policy": "geometry",
+    "similarity_threshold": 0.0001
+  },
+  "aggregation": {
+    "sources": [
+      "partnet-manualpa",
+      "ikea-manual",
+      "assemblybench",
+      "fantastic-breaks"
+    ],
+    "rule": "mean over sources of the mean over that source's blocks",
+    "missing_sample_rule": "a sample without a scored row counts SR=0 and PA=0; SCD averages scored rows only",
+    "refusal_rule": "a model refusal is a failed evaluation (SR=0) and is additionally reported as a refusal count"
+  }
+}

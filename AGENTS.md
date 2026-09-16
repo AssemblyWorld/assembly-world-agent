@@ -20,9 +20,13 @@ poses. Record grouping thresholds, provenance and transitive-closure diagnostics
 Preparation and deterministic GT fixtures are not evidence of model success.
 
 Keep reusable initial ZIPs directly in `data/<dataset>/<config-id>/` alongside
-`config.json`. Never persist private GT, point clouds, manuals or source annotations.
-Reload pinned HF data and reconstruct these resources in memory when needed. Use
-standard HF caches or an explicit external cache path. Experiments only read data.
+`config.json`. Derived private data (reference images, GT poses, point clouds, equivalence
+groups) may persist only in `data/**/cache/<sample>/`, keyed by preparation identity and
+episode checksum, filled on first use and never overwritten on a key mismatch. Nothing from
+the cache enters an episode or is served to an agent; the agent only receives the episode
+ZIP. Review each source's license before publishing a data package that includes caches.
+Everywhere else, reload pinned HF data and reconstruct in memory. Use standard HF caches
+or an explicit external cache path. Experiments only read data.
 
 Every experiment writes a unique `logs/<run-id>/` with `meta.json`, `metrics.json`,
 runtime episodes and optional screenshots. Record failures and partial checks.
@@ -47,3 +51,11 @@ Offline MP4/GIF replay lives in `vis` and consumes episode records only. Restore
 saved states without executing tools or loading datasets. Distinguish original
 observations from native visualization, preserve complete paginated call text, and
 record render metadata in logs. Explicit user output destinations are supported.
+
+AssemblyWorldBench lives in `data/assemblyworldbench/` as five standard configuration
+directories plus `benchmark.json`; its frozen selection (spec, exclusions, manifest,
+overrides) is versioned under `benchmarks/assemblyworldbench/` and was chosen from task
+properties only, never from model results. Changing a sample, quota, exclusion or task text
+is a new benchmark version, not an edit. Run it with the ordinary `run` command and each
+block's `task.txt`; score it with `scripts/evaluate_run.py --benchmark`, one evaluation
+protocol for every block, aggregated by the rules recorded in `benchmark.json`.

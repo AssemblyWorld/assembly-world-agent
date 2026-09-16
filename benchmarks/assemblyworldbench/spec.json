@@ -1,0 +1,93 @@
+{
+  "benchmark": "assemblyworldbench-v1",
+  "description": "100 evaluations over 80 distinct shapes from four prepared sources. Selection uses task properties only; category quotas are stratified, part-count band balance is an acceptance constraint.",
+  "selections": {
+    "partnet-manualpa": {
+      "dataset": "partnet-manualpa",
+      "config_id": "prep-v1-s0-i0-987553cbcd58",
+      "quota": 20,
+      "category_quota": {"chair": 7, "table": 7, "storage": 6},
+      "difficulty": {"axis": "parts", "bands": 3, "cuts_by": "category"},
+      "sources": [
+        {
+          "category": "chair",
+          "data": "data/partnet-manualpa-test/chair-none",
+          "paired": {"final-image": "data/partnet-manualpa-test/chair-final-image"}
+        },
+        {
+          "category": "table",
+          "data": "data/partnet-manualpa-test/table-none",
+          "paired": {"final-image": "data/partnet-manualpa-test/table-final-image"}
+        },
+        {
+          "category": "storage",
+          "data": "data/partnet-manualpa-test/storage-none",
+          "paired": {"final-image": "data/partnet-manualpa-test/storage-final-image"}
+        }
+      ]
+    },
+    "ikea-manual": {
+      "dataset": "ikea-manual",
+      "config_id": "prep-v1-s0-i0-823ea008b2b1",
+      "quota": 20,
+      "category": "id-prefix",
+      "minimum_category_size": 3,
+      "difficulty": {"axis": "parts", "bands": 3, "cuts_by": "pool"},
+      "sources": [{"data": "data"}]
+    },
+    "assemblybench": {
+      "dataset": "assemblybench",
+      "config_id": "prep-v1-s0-i0-5201fd352313",
+      "quota": 20,
+      "category": null,
+      "difficulty": {"axis": "parts", "bands": 3, "cuts_by": "pool"},
+      "sources": [{"data": "data"}]
+    },
+    "fantastic-breaks": {
+      "dataset": "fantastic-breaks",
+      "config_id": "prep-v1-s0-i0-a49b9f0e6b8e",
+      "quota": 20,
+      "category": "id-prefix",
+      "minimum_category_size": 3,
+      "difficulty": null,
+      "sources": [{"data": "data"}]
+    }
+  },
+  "constraints": [
+    {"type": "band_balance", "selection": "partnet-manualpa", "target": [7, 7, 6]},
+    {"type": "band_balance", "selection": "ikea-manual", "target": [7, 7, 6]},
+    {"type": "band_balance", "selection": "assemblybench", "target": [7, 7, 6]},
+    {
+      "type": "pooled_band_balance",
+      "selections": ["partnet-manualpa", "ikea-manual", "assemblybench"]
+    }
+  ],
+  "max_attempts": 1000,
+  "blocks": [
+    {"name": "partnet-none", "selection": "partnet-manualpa", "reference_mode": "none"},
+    {
+      "name": "partnet-final-image",
+      "selection": "partnet-manualpa",
+      "reference_mode": "final-image",
+      "paired": true
+    },
+    {"name": "ikea-manualbook", "selection": "ikea-manual", "reference_mode": "manualbook"},
+    {
+      "name": "assemblybench-manualbook",
+      "selection": "assemblybench",
+      "reference_mode": "manualbook"
+    },
+    {"name": "fantastic-breaks-none", "selection": "fantastic-breaks", "reference_mode": "none"}
+  ],
+  "evaluation": {
+    "protocol": "assembly-evaluation-v2",
+    "similarity_policy": "geometry",
+    "similarity_threshold": 0.0001
+  },
+  "aggregation": {
+    "sources": ["partnet-manualpa", "ikea-manual", "assemblybench", "fantastic-breaks"],
+    "rule": "mean over sources of the mean over that source's blocks",
+    "missing_sample_rule": "a sample without a scored row counts SR=0 and PA=0; SCD averages scored rows only",
+    "refusal_rule": "a model refusal is a failed evaluation (SR=0) and is additionally reported as a refusal count"
+  }
+}

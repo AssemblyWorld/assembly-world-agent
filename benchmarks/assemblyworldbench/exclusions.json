@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "rule": "Exclude samples whose part names or manual text identify the object as a weapon (firearm, blade intended as a weapon, explosive). This is a content rule applied to metadata before selection; it is independent of any model refusal.",
+  "procedure": "1) scan part names and manual text of the AssemblyBench official test split with the recorded terms; 2) a human reviews every hit's full part list and records a decision with a one-line reason. Keyword hits alone are not exclusions.",
+  "terms": [
+    "gun",
+    "rifle",
+    "pistol",
+    "firearm",
+    "barrel",
+    "trigger",
+    "magazine",
+    "ammo",
+    "bullet",
+    "knife",
+    "blade",
+    "sword",
+    "weapon",
+    "grenade",
+    "bomb",
+    "crossbow",
+    "bow",
+    "scope",
+    "muzzle"
+  ],
+  "scope": {
+    "assemblybench": "scanned; hits reviewed below",
+    "ikea-manual": "not scanned: furniture only; no sample excluded",
+    "partnet-manualpa": "not scanned: furniture only; no sample excluded",
+    "fantastic-breaks": "not scanned: household objects; no sample excluded"
+  },
+  "entries": [
+    {
+      "selection": "assemblybench",
+      "sample_id": "6772",
+      "decision": "exclude",
+      "reason": "Firearm-like object: parts Frame, Handle, Base, Rod, Guard, Barrel, Tip, Scope.",
+      "evidence": "Part names; GPT-6 + Codex refused this sample as a dangerous item (paper provenance/assemblybench_refusal.json).",
+      "decided_by": "author (prior paper decision, 2026-09-13)",
+      "date": "2026-09-16"
+    },
+    {
+      "selection": "assemblybench",
+      "sample_id": "5292",
+      "decision": "exclude",
+      "reason": "Firearm-like object: parts Barrel Ring, Trigger Guard, Grip, Handle, Actuation Lever.",
+      "evidence": "Part names from the keyword scan; pending author confirmation.",
+      "decided_by": "assistant proposal awaiting author confirmation",
+      "date": "2026-09-16"
+    },
+    {
+      "selection": "assemblybench",
+      "sample_id": "1874",
+      "decision": "exclude",
+      "reason": "Assembled object is a long tube on a small mount that reads as a cannon barrel.",
+      "evidence": "Geometry review of the assembled shape in the benchmark preview page, not the keyword hit; the earlier keyword-only review kept it as a clamp.",
+      "decided_by": "author (2026-09-16 review)",
+      "date": "2026-09-16"
+    }
+  ],
+  "reviewed_false_positives": {
+    "429": "Barrel is a lens barrel (Lens Cap, Head, Support Column)",
+    "569": "Blade/Fin are fan or turbine blades",
+    "1047": "Blade with Crank, Handle, Cap: hand tool",
+    "1717": "Barrel Core is a clamp body",
+    "2651": "Fin Blade with Frame, Top Cover, Divider: fan housing",
+    "4211": "Trigger Plate with Switch Housing, Actuation Arm: switch mechanism"
+  },
+  "note": "1874 was drawn by manifest.json before this entry existed; overrides.json replaces it with 2465."
+}

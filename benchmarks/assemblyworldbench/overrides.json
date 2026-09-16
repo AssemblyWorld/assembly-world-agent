@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "benchmark": "assemblyworldbench",
+  "applies_to": "manifest.json (seed 0, benchmark-selection-v1)",
+  "rule": "Recorded one-for-one replacements applied on top of the frozen draw before the data directory is built. The other shapes and all band and category counts are unchanged; no redraw.",
+  "replacements": [
+    {
+      "selection": "assemblybench",
+      "remove": "1874",
+      "add": "2465",
+      "band": "mid",
+      "category": null,
+      "reason": "1874 assembles into a long tube on a small mount and reads visually as a cannon barrel; excluded under the content rule after a geometry review (the earlier keyword-only review had kept it as a clamp). 2465 is the first unselected mid-band candidate in the same attempt's key order (Frame Beam x3, Support Bar x2: a frame).",
+      "decided_by": "author (geometry review of the preview page, 2026-09-16)",
+      "date": "2026-09-16"
+    },
+    {
+      "selection": "ikea-manual",
+      "remove": "Bench/sjalland",
+      "add": "Bench/applaro",
+      "band": "low",
+      "category": "Bench",
+      "reason": "Keep the first sample of the original IKEA-Manual dataset in the benchmark; both benches have four parts and the same category, so counts are unchanged.",
+      "decided_by": "author, 2026-09-16",
+      "date": "2026-09-16"
+    }
+  ]
+}

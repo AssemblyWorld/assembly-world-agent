@@ -139,3 +139,48 @@ def test_reorder_retains_attempts_and_selects_only_pending(monkeypatch, tmp_path
     else:
         assert result["groups"][1]["options"]["sample_id"] == ["pending"]
     assert result["retained_runs"] == [str(run)]
+
+
+def test_plan_without_task_uses_each_groups_prompt_file(monkeypatch, tmp_path):
+    from assembly_world_agent.artifacts import write_json
+
+    prompts = {}
+    for name in ("none", "image"):
+        path = tmp_path / f"{name}.txt"
+        path.write_text(f"task for {name}")
+        prompts[name] = str(path)
+    plan = tmp_path / "plan.json"
+    write_json(
+        plan,
+        {
+            "options": {},
+            "groups": [
+                {"name": name, "expected_samples": 1, "options": {"prompt_file": prompts[name]}}
+                for name in prompts
+            ],
+        },
+    )
+    tasks = []
+
+    async def doctor(options):
+        return {}
+
+    async def schedule(directory, *, execute):
+        return 0
+
+    original = runner.create_run
+    monkeypatch.setattr(runner, "doctor", doctor)
+    monkeypatch.setattr(runner, "select_inputs", lambda options: (None, {"one": {}}))
+    monkeypatch.setattr(runner, "schedule", schedule)
+    monkeypatch.setattr(runner, "status", lambda directory: {"counts": {"completed": 1}})
+
+    def record(options, config, inputs, *, task=None, **kwargs):
+        options = {**options, "logs": str(tmp_path / "logs")}
+        directory = original(options, config, inputs, task=task, **kwargs)
+        tasks.append(runner.read_json(directory / "run.json")["task"])
+        return directory
+
+    monkeypatch.setattr(runner, "create_run", record)
+    result = asyncio.run(batch.launch_batch(plan))
+    assert result["status"] == "finished"
+    assert tasks == ["task for none", "task for image"]

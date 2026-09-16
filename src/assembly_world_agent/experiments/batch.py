@@ -79,8 +79,9 @@ async def launch_batch(plan_path):
             config, inputs = await asyncio.to_thread(runner.select_inputs, options)
             if len(inputs) != group["expected_samples"]:
                 raise ValueError(f"Unexpected sample count for {group['name']}")
+            # A plan without "task" lets each group's prompt_file supply its own text.
             directory = runner.create_run(
-                options, config, inputs, task=plan["task"], versions=versions
+                options, config, inputs, task=plan.get("task"), versions=versions
             )
             entry = {"name": group["name"], "run": str(directory), "status": "running"}
             state["groups"].append(entry)

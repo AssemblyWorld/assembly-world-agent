@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 from ..adapters import REFERENCE_MODES, get_adapter, reference_pages
-from ..artifacts import now, read_config, sample_name, write_json
+from ..artifacts import cache_directory, now, read_config, sample_name, write_json
 from ..episode_io import read_episode
 from ..episodes import sha256
 from .agents import prompt_content, run_agent
@@ -144,8 +144,97 @@ def create_run(options, config, inputs, *, source_run=None, task=None, versions=
     return directory
 
 
+REFERENCE_PAGE_KEYS = ("source_file", "manual_id", "page_index", "view_id", "step_id", "kind")
+
+
+def reference_cache_directory(inputs, mode):
+    """``<config-dir>/cache/<sample>/reference/<mode>/`` for a configured sample, else None."""
+    directory = cache_directory(inputs.get("initial_path"))
+    return None if directory is None else directory / "reference" / mode
+
+
+def read_reference_cache(directory, *, dataset, revision, mode):
+    """Cached reference pages as (page metadata, raw bytes), or None when absent.
+
+    Every page is verified against its recorded source checksum, so a cache that
+    was edited is an error rather than a silently different input.
+    """
+    index = Path(directory) / "pages.json"
+    if not index.is_file():
+        return None
+    value = json.loads(index.read_text())
+    if (
+        value.get("dataset") != dataset
+        or value.get("revision") != revision
+        or value.get("reference_mode") != mode
+    ):
+        raise ValueError(f"Reference cache provenance differs: {index}")
+    if not value.get("pages"):
+        raise ValueError(f"Reference cache has no pages: {index}")
+    selected, payloads = [], []
+    for number, page in enumerate(value["pages"], 1):
+        if page["page"] != number:
+            raise ValueError(f"Reference cache page order is invalid: {index}")
+        payload = (Path(directory) / page["file"]).read_bytes()
+        if sha256(payload) != page["source_sha256"]:
+            raise ValueError(f"Cached reference page differs from its checksum: {page['file']}")
+        selected.append({k: page[k] for k in REFERENCE_PAGE_KEYS if k in page})
+        payloads.append(payload)
+    return selected, payloads
+
+
+def write_reference_cache(directory, manual, payloads, suffixes):
+    """Store the raw page bytes and the page table; an existing table is left alone."""
+    directory = Path(directory)
+    if (directory / "pages.json").exists():
+        return False
+    directory.mkdir(parents=True, exist_ok=True)
+    pages = []
+    for record, payload, suffix in zip(manual["pages"], payloads, suffixes):
+        name = f"page-{record['page']:04d}{suffix}"
+        with tempfile.NamedTemporaryFile(dir=directory, delete=False) as stream:
+            stream.write(payload)
+        Path(stream.name).replace(directory / name)
+        pages.append({**record, "file": name})
+    write_json(directory / "pages.json", {**manual, "pages": pages})
+    return True
+
+
+def _hf_reference_pages(inputs, identity, adapter, mode):
+    """Select this sample's page records from pinned HF data; None for legacy sources."""
+    from datasets import Image as HFImage
+    from datasets import load_dataset
+
+    rows = load_dataset(
+        adapter.REPO_ID,
+        split="full",
+        revision=identity["revision"],
+        **getattr(adapter, "LOAD_KWARGS", {}),
+    )
+    if "manual_pages" not in rows.column_names:
+        if mode is not None:
+            raise ValueError("Pinned dataset has no reference images")
+        return None
+    columns = [adapter.SAMPLE_ID_FIELD, "manual_pages"]
+    if mode is not None:
+        columns.extend(getattr(adapter, "REFERENCE_COLUMNS", ()))
+    rows = rows.select_columns(columns)
+    features = rows.features.copy()
+    features["manual_pages"].feature["image"] = HFImage(decode=False)
+    rows = rows.cast(features)
+    found = next((row for row in rows if row[adapter.SAMPLE_ID_FIELD] == inputs["sample_id"]), None)
+    if found is None:
+        raise ValueError("Sample missing from pinned manual source")
+    return found["manual_pages"] if mode is None else reference_pages(adapter.REPO_ID, found, mode)
+
+
 def manual_pages(inputs, meta, root):
-    """Read only manual columns from pinned data, never adapt GT geometry for the agent."""
+    """Read only manual columns from pinned data, never adapt GT geometry for the agent.
+
+    Reference images come from an explicit ``--manual`` directory, else from the
+    sample's reference cache next to its configuration, else from pinned HF data
+    (which then fills the cache). All three paths record the same provenance.
+    """
     from PIL import Image
 
     pages = []
@@ -156,6 +245,7 @@ def manual_pages(inputs, meta, root):
         inputs["manual"] = {"source": None, "reference_mode": mode, "pages": []}
         return []
     explicit = meta["options"].get("manual")
+    cache = None
     if explicit:
         directory = Path(explicit)
         sources = sorted(
@@ -168,48 +258,34 @@ def manual_pages(inputs, meta, root):
             sources = sources[:1]
         selected = [{"source_file": p.name} for p in sources]
     elif meta.get("config"):
-        from datasets import Image as HFImage
-        from datasets import load_dataset
-
         identity = meta["config"]["identity"]
         adapter = get_adapter(identity["dataset"])
-        rows = load_dataset(
-            adapter.REPO_ID,
-            split="full",
-            revision=identity["revision"],
-            **getattr(adapter, "LOAD_KWARGS", {}),
-        )
         provenance = {"dataset": adapter.REPO_ID, "revision": identity["revision"]}
-        if "manual_pages" not in rows.column_names:
-            if mode is not None:
-                raise ValueError("Pinned dataset has no reference images")
-            inputs["manual"] = {**provenance, "pages": []}
-            return []
-        columns = [adapter.SAMPLE_ID_FIELD, "manual_pages"]
+        cached = None
         if mode is not None:
-            columns.extend(getattr(adapter, "REFERENCE_COLUMNS", ()))
-        rows = rows.select_columns(columns)
-        features = rows.features.copy()
-        features["manual_pages"].feature["image"] = HFImage(decode=False)
-        rows = rows.cast(features)
-        found = next(
-            (row for row in rows if row[adapter.SAMPLE_ID_FIELD] == inputs["sample_id"]), None
-        )
-        if found is None:
-            raise ValueError("Sample missing from pinned manual source")
-        selected = (
-            found["manual_pages"] if mode is None else reference_pages(adapter.REPO_ID, found, mode)
-        )
-        sources = [p["image"] for p in selected]
+            cache = reference_cache_directory(inputs, mode)
+            if cache is not None:
+                cached = read_reference_cache(cache, mode=mode, **provenance)
+        if cached is not None:
+            selected, sources = cached
+            cache = None
+        else:
+            selected = _hf_reference_pages(inputs, identity, adapter, mode)
+            if selected is None:
+                inputs["manual"] = {**provenance, "pages": []}
+                return []
+            sources = [p["image"] for p in selected]
     else:
         if mode is not None:
             raise ValueError("Reference images require pinned dataset provenance or --manual")
         inputs["manual"] = {"source": None, "pages": []}
         return []
-    records = []
+    records, payloads, suffixes = [], [], []
     for index, source in enumerate(sources, 1):
         if isinstance(source, dict):
             payload = source.get("bytes") or Path(source["path"]).read_bytes()
+        elif isinstance(source, bytes):
+            payload = source
         else:
             payload = Path(source).read_bytes()
         path = Path(root) / f"manual-{index:04d}.png"
@@ -226,6 +302,8 @@ def manual_pages(inputs, meta, root):
                 path = path.with_suffix(suffix)
                 path.write_bytes(payload)
         pages.append(str(path))
+        payloads.append(payload)
+        suffixes.append(path.suffix)
         records.append(
             {
                 "page": index,
@@ -235,22 +313,13 @@ def manual_pages(inputs, meta, root):
         )
         if mode is not None:
             records[-1].update(
-                {
-                    k: selected[index - 1][k]
-                    for k in (
-                        "source_file",
-                        "manual_id",
-                        "page_index",
-                        "view_id",
-                        "step_id",
-                        "kind",
-                    )
-                    if k in selected[index - 1]
-                }
+                {k: selected[index - 1][k] for k in REFERENCE_PAGE_KEYS if k in selected[index - 1]}
             )
     if mode is not None:
         provenance["reference_mode"] = mode
     inputs["manual"] = {**provenance, "pages": records}
+    if cache is not None:
+        write_reference_cache(cache, inputs["manual"], payloads, suffixes)
     return pages
 
 

@@ -693,6 +693,122 @@ window.ResultThree = { THREE, OrbitControls };
 Run esbuild with `--bundle --minify --format=iife` and write its output to
 `vis/web/three.bundle.js`; no Node installation is needed to generate reports.
 
+## AssemblyWorldBench
+
+AssemblyWorldBench is 100 evaluations over 80 distinct shapes drawn from the four prepared
+sources. It is not a new kind of data: `data/assemblyworldbench/` holds five ordinary
+configuration directories (`<block>/<repo>/<config-id>/config.json` plus the initial
+episode ZIPs, byte-identical to the originals), one task text per block, and one
+`benchmark.json` that names the blocks. Runs use the normal `run` command and are scored by
+the normal `scripts/evaluate_run.py`; only the `--benchmark` aggregation flag is new.
+
+| Block | Source | Reference mode | Shapes |
+| --- | --- | --- | --- |
+| `partnet-none` | PartNet-ManualPA | none | 20 (7 chair, 7 table, 6 storage) |
+| `partnet-final-image` | PartNet-ManualPA | final-image | the same 20 |
+| `ikea-manualbook` | IKEA-Manual | manualbook | 20 |
+| `assemblybench-manualbook` | AssemblyBench | manualbook | 20 |
+| `fantastic-breaks-none` | Fantastic Breaks | none | 20 |
+
+```
+data/assemblyworldbench/
+├── benchmark.json          blocks, sample properties, task-text checksums, aggregation rules, provenance
+├── launch-commands.txt     one run command per block
+├── batch-plan.json         the same five groups for scripts/run_experiment_batch.py
+├── preview.html            standalone Three.js preview (ground truth; never expose to an agent)
+└── <block>/
+    ├── task.txt            the block's task text, passed with --prompt-file
+    └── <repo>/<config-id>/
+        ├── config.json     20-sample slice of the original configuration
+        ├── <sample>.episode.zip
+        └── cache/<sample>/
+            ├── reference/<mode>/{pages.json, page-NNNN.<ext>}   final-image and manualbook only
+            └── evaluation.json
+```
+
+The selection is frozen in `benchmarks/assemblyworldbench/`: `spec.json` (quotas, category and
+part-count band rules, acceptance constraints), `exclusions.json` (content rule and decided
+entries), `exclusion_candidates.json` (every keyword hit with its review), `manifest.json`
+(the seed-0 draw) and `overrides.json` (two recorded one-for-one replacements applied on top
+of the draw). Selection used task properties only, never a model result. `benchmark.json`
+records the SHA-256 of all five files. The data directory itself stays out of Git.
+
+### Task text
+
+Each sample's prompt is the block's `task.txt`, the runner's fixed transport protocol and the
+sample's reference images. The three texts differ only in their second sentence, which states
+what is attached: nothing (`none`), one image of the finished assembly (`final-image`), or the
+manual pages in order (`manualbook`). Earlier experiments used other wordings and never told
+the model what an attached image meant, so their results are not benchmark results. A run
+whose recorded task differs from the block's `task.txt` is rejected by `--benchmark`.
+
+### Running
+
+```sh
+# One block; see launch-commands.txt for all five. AGENT is codex or claude.
+uv run --locked --extra episodes --group browser assembly-world-agent run \
+  --dataset partnet-manualpa --config-id prep-v1-s0-i0-987553cbcd58 \
+  --data data/assemblyworldbench/partnet-none --reference-mode none \
+  --prompt-file data/assemblyworldbench/partnet-none/task.txt \
+  --agent "$AGENT" --model "$MODEL" --mcp-command "$MCP_COMMAND" --headless \
+  --logs logs/assemblyworldbench/partnet-none
+
+# Or all five blocks in order after filling agent and model in batch-plan.json.
+uv run --locked --extra episodes --group browser python scripts/run_experiment_batch.py \
+  data/assemblyworldbench/batch-plan.json
+```
+
+A batch plan without a top-level `task` lets each group's `prompt_file` supply its text.
+
+### Evaluating
+
+```sh
+uv run --locked --extra episodes python scripts/evaluate_run.py \
+  --benchmark data/assemblyworldbench/benchmark.json \
+  logs/assemblyworldbench/partnet-none/RUN logs/assemblyworldbench/ikea-manualbook/RUN ...
+```
+
+Each run is matched to its block by dataset, configuration id and reference mode; its samples
+must belong to the block and its task text must match. Runs of one block (for example a
+resumed run) are joined by sample identity and scored into
+`logs/assemblyworldbench/evaluation/<timestamp>/<block>/`; archived runs are never written to.
+Every block uses the free-space `assembly-evaluation-v2` protocol with the `geometry`
+similarity policy, including Fantastic Breaks; the GARF-style fracture table keeps its own
+protocol and is not pooled. A sample without a scored row counts SR=0 and PA=0. Overall is the
+mean over the four sources of the mean over that source's blocks, so PartNet counts once.
+Blocks without any run are listed as `(no run)` and left out of the means; the status is then
+`incomplete`. The default output is SR only, one line per block with a Wilson 95% interval,
+per source, then Overall; `--json` prints everything (PA, SCD, per band, per category,
+agent outcome counts, errors). The summary is also written to `benchmark_summary.json`.
+
+### Per-sample cache
+
+Any configuration directory under `data/` may hold `cache/<sample>/` next to its episodes.
+Two derived products live there, and both are filled on first use and reused afterwards:
+
+- `reference/<mode>/` holds the raw page bytes and a `pages.json` with the same provenance
+  fields the runner records in `input.json["manual"]`. `run` consults it after an explicit
+  `--manual` directory and before Hugging Face; every page is verified against its checksum.
+- `evaluation.json` holds the 1000-point clouds, ground-truth poses, scale divisor and resolved
+  equivalence groups, keyed by the preparation identity, the initial episode checksum and the
+  evaluation protocols. On a hit, scoring validates the final episode against the initial
+  episode instead of against source geometry and needs no Hugging Face access. A key that
+  differs in anything but the similarity protocol is reported as that sample's error and is
+  never overwritten; another similarity policy is computed fresh without touching the entry.
+
+The benchmark ships with every cache entry filled, so the paper's numbers can be recomputed
+from the data directory, the model outputs and this repository's evaluation code alone. The
+cache is never served to an agent; only the episode ZIP is.
+
+### Preview
+
+`preview.html` shows every selected shape in a Three.js viewer: a list filterable by block,
+category and band; an orbit view with a slider from the scattered initial placement to the
+ground-truth assembly; part colors; and per-source statistics. Parts above 60,000 triangles
+(the fracture scans) are decimated for display only by vertex clustering; scoring never reads
+the page. Regenerate with `assembly_world_agent.vis.export_benchmark_preview(benchmark_json,
+output)`.
+
 ## Offline assembly evaluation
 
 ### GARF-style fracture metrics
@@ -874,6 +990,21 @@ geometry evaluator first; this comparison requires its persisted groups and tran
 Clear notebook outputs before saving/sharing: reconstructed GT stays in memory,
 not in the committed notebook. Existing metric and episode hashes are checked after
 execution.
+
+### Joining resumed runs
+
+`scripts/evaluate_run.py` accepts several run directories, an explicit `--output`, or a
+`--sample-id` filter. Any of these joins the runs by sample identity into a new output directory
+and never writes into the archived runs; a sample listed in a run configuration without a
+located final episode is recorded as an error row so it stays in the coverage denominator. The
+single-run form without `--output` keeps writing `metrics.jsonl` next to the run as before.
+
+```sh
+uv run --locked --extra episodes python scripts/evaluate_run.py \
+  logs/2026-09-08T032115.159371Z-browser-8d76194c \
+  logs/2026-09-08T150834.628422Z-browser-a49828c0 \
+  --output logs/fantastic-breaks-chamfer-v2
+```
 
 ## Ordered experiment batches
 

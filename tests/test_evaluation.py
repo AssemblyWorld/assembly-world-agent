@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from dataclasses import replace
 
 import numpy as np
@@ -189,6 +190,41 @@ def test_final_state_restoration_and_geometry(row, tmp_path, monkeypatch):
         final_poses(episode, modified)
 
 
+def test_final_poses_tolerates_negligible_triangle_drift(row, tmp_path):
+    """A degenerate triangle may be omitted by one code build and kept by another."""
+    pytest.importorskip("mujoco")
+    from assembly_world_agent.episodes import _render_mesh
+    from assembly_world_agent.evaluation.inputs import effective_faces
+
+    row = deepcopy(row)
+    plate = row["parts"][1]
+    plate["vertices"].append([5.5, 0.0, 0.0])  # collinear with the bottom edge
+    plate["faces"].append([0, 4, 1])  # a triangle of negligible area
+    plate["face_normal_indices"].append([-1] * 3)
+    sample = prepare_sample(adapt_sample("ikea-manual", row, revision="fixture"))
+    part = sorted(sample.parts, key=lambda p: p.part_id)[1]
+    vertices, faces = _render_mesh(part)
+    assert len(faces) == 3 and len(effective_faces(vertices, faces)) == 2
+    episode = read_episode(export_episode(sample, tmp_path / "initial.zip").path)
+    name = "world/meshes/part-0002.obj"
+    lines = episode["files"][name].decode().splitlines()
+    assert sum(line.startswith("f ") for line in lines) == 3
+    # An episode written by a build whose arithmetic made that area exactly zero.
+    degenerate = " ".join(str(i + 1) for i in faces[-1])
+    omitted = [line for line in lines if line != f"f {degenerate}"]
+    assert len(omitted) == len(lines) - 1
+    episode["files"][name] = ("\n".join(omitted) + "\n").encode()
+    poses, _ = final_poses(episode, sample)
+    assert len(poses) == 2
+    # A missing real triangle is still rejected.
+    real = " ".join(str(i + 1) for i in faces[0])
+    episode["files"][name] = (
+        "\n".join(line for line in lines if line != f"f {real}") + "\n"
+    ).encode()
+    with pytest.raises(ValueError, match="geometry differs"):
+        final_poses(episode, sample)
+
+
 def test_summary_macro_average_and_errors():
     rows = [
         dict(sample_id="a", status="scored", SCD=2, PA=0.5, SR=0),
@@ -257,3 +293,91 @@ def test_run_missing_final_is_recorded_and_outputs_replaced(
             assert summary["SCD"] is summary["PA"] is summary["SR"] is None
         assert len((tmp_path / "metrics.jsonl").read_text().splitlines()) == 2
     assert (tmp_path / "metrics.json").read_text() == "original scheduling results"
+    rows = [json.loads(line) for line in (tmp_path / "metrics.jsonl").read_text().splitlines()]
+    assert [row["sample_id"] for row in rows] == ["Test/a", "Test/b"]
+    assert json.loads((tmp_path / "metrics_summary.json").read_text()) == json.loads(
+        json.dumps(summary)
+    )
+
+
+def _identity(dataset="ikea-manual"):
+    return dict(
+        protocol="assembly-preparation-v1",
+        revision="b" * 40,
+        dataset=dataset,
+        preparation={"sampling_seed": 0, "initialization_seed": 0},
+    )
+
+
+def _write_run(directory, identity, samples, finals):
+    from assembly_world_agent.artifacts import config_id, sample_name
+
+    directory.mkdir(parents=True)
+    config = dict(version=1, config_id=config_id(identity), identity=identity, samples=samples)
+    (directory / "run.json").write_text(json.dumps({"config": config}))
+    for sid in finals:
+        sample = directory / "samples" / sample_name(sid)
+        sample.mkdir(parents=True)
+        (sample / "final.episode.zip").write_bytes(b"episode " + sid.encode())
+
+
+def _snapshot(directory):
+    return {p.relative_to(directory): p.read_bytes() for p in directory.rglob("*") if p.is_file()}
+
+
+def test_evaluate_runs_joins_without_touching_archives(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from types import SimpleNamespace
+
+    from assembly_world_agent.evaluation import runner
+
+    monkeypatch.setattr(runner, "ProcessPoolExecutor", ThreadPoolExecutor)
+    monkeypatch.setattr(
+        runner,
+        "load_samples",
+        lambda *a, **kw: iter(SimpleNamespace(sample_id=sid) for sid in kw["sample_ids"]),
+    )
+    monkeypatch.setattr(
+        runner,
+        "evaluate_sample",
+        lambda d, e, i, s, sim, initial=None: dict(
+            sample_id=s.sample_id, status="scored", SCD=0.0, PA=1.0, SR=1, seen=d.name
+        ),
+    )
+    identity = _identity()
+    samples = {"Test/a": {"parts": 2}, "Test/b": {"parts": 3}, "Test/c": {"parts": 4}}
+    first = tmp_path / "run-1"
+    second = tmp_path / "run-2"
+    _write_run(first, identity, samples, ["Test/a"])
+    _write_run(second, identity, {"Test/b": {"parts": 3}, "Test/c": {"parts": 4}}, ["Test/b"])
+    before = _snapshot(first), _snapshot(second)
+    output = tmp_path / "joined"
+    summary = runner.evaluate_runs([first, second], output, workers=1)
+    assert summary["expected_samples"] == 3 and summary["scored_samples"] == 2
+    assert summary["status"] == "incomplete"
+    assert summary["errors"] == [
+        {"sample_id": "Test/c", "error": "FileNotFoundError: Missing final episode"}
+    ]
+    rows = [json.loads(line) for line in (output / "metrics.jsonl").read_text().splitlines()]
+    assert [row["sample_id"] for row in rows] == ["Test/a", "Test/b", "Test/c"]
+    assert rows[0]["seen"] == "Test--a" and rows[1]["seen"] == "Test--b"
+    meta = json.loads((output / "meta.json").read_text())
+    assert meta["sample_ids"] == ["Test/a", "Test/b", "Test/c"]
+    assert meta["runs"] == [str(first.resolve()), str(second.resolve())]
+    assert (_snapshot(first), _snapshot(second)) == before
+    with pytest.raises(FileExistsError):
+        runner.evaluate_runs([first, second], output, workers=1)
+    subset = runner.evaluate_runs(
+        [first, second], tmp_path / "subset", workers=1, sample_ids=["Test/b"]
+    )
+    assert subset["expected_samples"] == 1 and subset["status"] == "complete"
+    with pytest.raises(ValueError, match="Unknown sample IDs"):
+        runner.evaluate_runs([first], tmp_path / "unknown", sample_ids=["Test/zzz"])
+    duplicate = tmp_path / "run-3"
+    _write_run(duplicate, identity, {"Test/a": {"parts": 2}}, ["Test/a"])
+    with pytest.raises(ValueError, match="Multiple final episodes"):
+        runner.evaluate_runs([first, duplicate], tmp_path / "duplicate")
+    with pytest.raises(ValueError, match="different preparation identities"):
+        other = tmp_path / "run-4"
+        _write_run(other, _identity("assemblybench"), {"X": {"parts": 1}}, [])
+        runner.evaluate_runs([first, other], tmp_path / "mixed")

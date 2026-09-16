@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AssemblyWorldBench — __TITLE__</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0; background: #10151c; color: #dfe6ee;
+        font: 13px system-ui, sans-serif; display: flex; flex-direction: column;
+      }
+      header { padding: 12px 18px; border-bottom: 1px solid #334155; background: #131c28; }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      #subtitle { color: #a5b4c8; font-size: 12px; }
+      main { flex: 1; display: grid; grid-template-columns: 300px 1fr 340px; min-height: 0; }
+      aside, section { min-height: 0; overflow: auto; }
+      aside { border-right: 1px solid #334155; background: #0f151d; display: flex; flex-direction: column; }
+      #right { border-left: 1px solid #334155; background: #0f151d; padding: 12px 14px; }
+      .filters { padding: 10px 12px; display: grid; gap: 6px; border-bottom: 1px solid #263243; }
+      .filters label { display: flex; justify-content: space-between; gap: 8px; align-items: center; color: #a5b4c8; }
+      select, button, input[type=range] { font: inherit; color: #dfe6ee; background: #1b2736; border: 1px solid #3b4a5e; border-radius: 5px; padding: 4px 8px; }
+      button { cursor: pointer; }
+      button.active { background: #2d6cdf; border-color: #2d6cdf; color: #fff; }
+      #list { flex: 1; overflow: auto; }
+      .item { padding: 7px 12px; border-bottom: 1px solid #1e2a3a; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; }
+      .item:hover { background: #172233; }
+      .item.selected { background: #1f3a66; }
+      .item .id { font-weight: 600; }
+      .item .meta { color: #a5b4c8; font-size: 11.5px; grid-column: 1 / -1; }
+      .badge { font-size: 11px; padding: 1px 6px; border-radius: 9px; background: #263243; color: #c7d2e0; }
+      .badge.low { background: #1f5f3a; } .badge.mid { background: #6b5a1f; } .badge.high { background: #6b2a2a; } .badge.all { background: #2f3f55; }
+      #stage { position: relative; background: #1b2736; }
+      #canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+      .toolbar { position: absolute; left: 12px; top: 12px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; background: #0f151dcc; padding: 8px 10px; border-radius: 8px; }
+      .toolbar input[type=range] { width: 200px; }
+      #hint { position: absolute; right: 12px; bottom: 10px; color: #a5b4c8; font-size: 11px; }
+      h2 { font-size: 13px; margin: 14px 0 6px; color: #c7d2e0; text-transform: uppercase; letter-spacing: .04em; }
+      table { border-collapse: collapse; width: 100%; font-size: 12px; }
+      td, th { padding: 3px 6px; border-bottom: 1px solid #263243; text-align: left; vertical-align: top; }
+      th { color: #a5b4c8; font-weight: 500; }
+      td.num { text-align: right; font-variant-numeric: tabular-nums; }
+      dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 0; font-size: 12px; }
+      dt { color: #a5b4c8; } dd { margin: 0; word-break: break-all; }
+      .legend { display: flex; flex-wrap: wrap; gap: 4px 8px; margin-top: 6px; }
+      .legend span { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; }
+      .legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+      @media (max-width: 1100px) { main { grid-template-columns: 240px 1fr; } #right { display: none; } }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>AssemblyWorldBench — __TITLE__</h1>
+      <div id="subtitle"></div>
+    </header>
+    <main>
+      <aside>
+        <div class="filters">
+          <label>Block <select id="f-block"></select></label>
+          <label>Category <select id="f-category"></select></label>
+          <label>Band <select id="f-band"></select></label>
+          <label>Shown <span id="f-count"></span></label>
+        </div>
+        <div id="list"></div>
+      </aside>
+      <section id="stage">
+        <canvas id="canvas"></canvas>
+        <div class="toolbar">
+          <button id="b-initial">Initial</button>
+          <button id="b-play">Play</button>
+          <button id="b-gt">Assembled</button>
+          <input id="blend" type="range" min="0" max="1000" value="0" />
+          <label><input id="colors" type="checkbox" checked /> Part colors</label>
+          <label><input id="grid" type="checkbox" checked /> Grid</label>
+          <button id="b-reset">Reset view</button>
+        </div>
+        <div id="hint">Drag to orbit · wheel to zoom · right-drag to pan · ←/→ previous/next shape</div>
+      </section>
+      <section id="right">
+        <h2>Shape</h2>
+        <dl id="details"></dl>
+        <div class="legend" id="legend"></div>
+        <h2>Selections</h2>
+        <div id="stats"></div>
+        <h2>Pooled bands</h2>
+        <div id="pooled"></div>
+        <h2>Blocks</h2>
+        <div id="blocks"></div>
+      </section>
+    </main>

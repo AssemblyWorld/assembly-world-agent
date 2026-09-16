@@ -44,6 +44,21 @@ def sample_name(sample_id):
     return name
 
 
+def cache_directory(initial_path):
+    """Per-sample derived-data directory next to a prepared configuration, or None.
+
+    ``<config-dir>/cache/<sample-name>/`` holds reference images and evaluation inputs
+    derived from pinned source data. A standalone episode outside a configuration
+    directory has no cache. The cache is never served to an agent.
+    """
+    if initial_path is None:
+        return None
+    path = Path(initial_path)
+    if not path.name.endswith(".episode.zip") or not (path.parent / "config.json").is_file():
+        return None
+    return path.parent / "cache" / path.name.removesuffix(".episode.zip")
+
+
 def config_id(identity):
     config = identity["preparation"]
     return (
