@@ -92,6 +92,25 @@ ZIPs without converting or changing them. Use `--data` for another data root and
 Startup and final export have separate bounded timeouts. `--effort` selects a
 provider-supported effort; unavailable models/settings fail in the CLI.
 
+Codex runs ignore `~/.codex/config.toml`, so a non-OpenAI endpoint is configured on
+the command line with repeatable `--codex-config KEY=VALUE` overrides, which are
+passed to `codex exec -c` verbatim and recorded in `run.json`. For an
+OpenAI-compatible vLLM server reachable on a local port:
+
+```sh
+uv run assembly-world-agent run ... --agent codex --model qwen3.8-27b \
+  --codex-config 'model_provider="vllm"' \
+  --codex-config 'model_providers.vllm.name="vLLM"' \
+  --codex-config 'model_providers.vllm.base_url="http://127.0.0.1:8000/v1"' \
+  --codex-config 'model_providers.vllm.wire_api="responses"' \
+  --codex-config 'model_providers.vllm.requires_openai_auth=false' \
+  --codex-config 'model_context_window=262144'
+```
+
+`--model` must be the server's served model name. Such a run reports tokens but no
+cost; the benchmark evaluator estimates cost from the list prices in
+`assembly_world_agent.benchmark.LIST_PRICES` when the model is listed there.
+
 The default task assembles the object and checks connections through WebMCP.
 Before finishing, the agent is asked to check whether all supplied parts have
 been incorporated into the assembly.
@@ -772,14 +791,21 @@ Each run is matched to its block by dataset, configuration id and reference mode
 must belong to the block and its task text must match. Runs of one block (for example a
 resumed run) are joined by sample identity and scored into
 `logs/assemblyworldbench/evaluation/<timestamp>/<block>/`; archived runs are never written to.
+Passing the same `--output` again reuses every block whose run set is unchanged and scores only
+the blocks that are new or changed, so a growing benchmark run can be re-aggregated cheaply.
 Every block uses the free-space `assembly-evaluation-v2` protocol with the `geometry`
 similarity policy, including Fantastic Breaks; the GARF-style fracture table keeps its own
 protocol and is not pooled. A sample without a scored row counts SR=0 and PA=0. Overall is the
 mean over the four sources of the mean over that source's blocks, so PartNet counts once.
 Blocks without any run are listed as `(no run)` and left out of the means; the status is then
 `incomplete`. The default output is SR only, one line per block with a Wilson 95% interval,
-per source, then Overall; `--json` prints everything (PA, SCD, per band, per category,
-agent outcome counts, errors). The summary is also written to `benchmark_summary.json`.
+per source, then Overall, each block followed by its per-evaluation budget (wall time from
+browser start to episode export, cost, total input and output tokens, tool calls); `--json`
+prints everything (PA, SCD, per band, per category, agent outcome counts, errors, the token
+breakdown). Cost is the agent CLI's own figure when it reports one (Claude Code); Codex reports
+tokens only, so its cost is estimated from the published list prices recorded in
+`benchmark.LIST_PRICES` and the summary says so. The summary is also written to
+`benchmark_summary.json`.
 
 ### Per-sample cache
 

@@ -224,6 +224,23 @@ def test_commands_isolate_mcp_and_do_not_bypass_permissions(tmp_path):
         assert "--ignore-user-config" in args if name == "codex" else "--strict-mcp-config" in args
 
 
+def test_codex_config_overrides_are_appended_verbatim(tmp_path):
+    overrides = [
+        'model_provider="vllm"',
+        'model_providers.vllm.base_url="http://127.0.0.1:8000/v1"',
+    ]
+    options = {"agent": "codex", "model": "qwen3.8-27b", "codex_config": overrides}
+    args = agents.command(options, tmp_path, tmp_path / "bridge.json")
+    base = agents.command(
+        {"agent": "codex", "model": "qwen3.8-27b"}, tmp_path, tmp_path / "bridge.json"
+    )
+    assert "--ignore-user-config" in args
+    assert args[-2:] == base[-2:] == ["--", "-"]
+    assert args[:-2] == base[:-2] + [x for o in overrides for x in ("-c", o)]
+    claude = agents.command({**options, "agent": "claude"}, tmp_path, tmp_path / "bridge.json")
+    assert not any(o in claude for o in overrides)
+
+
 def test_evaluation_reads_new_metadata_without_provenance(tmp_path):
     from assembly_world_agent.evaluation.runner import evaluate_run
 

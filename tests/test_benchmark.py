@@ -231,6 +231,7 @@ def test_evaluate_benchmark_scores_blocks_into_output(benchmark_dir, tmp_path, m
         output.mkdir(parents=True)
         rows = _rows(block, {sid: 1 for sid in ids})
         (output / "metrics.jsonl").write_text("".join(json.dumps(r) + "\n" for r in rows.values()))
+        write_json(output / "meta.json", dict(runs=[str(r) for r in runs]))
         return {}
 
     monkeypatch.setattr(evaluation, "evaluate_runs", fake_evaluate_runs)
@@ -249,6 +250,20 @@ def test_evaluate_benchmark_scores_blocks_into_output(benchmark_dir, tmp_path, m
     assert set(meta["runs"]) == {"partnet-none", "fantastic-breaks-none"}
     from assembly_world_agent.similarity import SimilarityConfig
 
+    # Calling again with one more block reuses the finished blocks and scores only the new one.
+    ikea = _write_run(tmp_path / "ikea", blocks["ikea-final-image"], ["Bench/a"])
+    calls.clear()
+    again = benchmark.evaluate_benchmark(
+        benchmark_dir / "benchmark.json", [first, second, fb, ikea], output=output, workers=1
+    )
+    assert calls == [(["ikea"], "geometry")]
+    assert again["blocks"]["ikea-final-image"]["evaluated"] is True
+    assert again["blocks"]["partnet-none"]["SR"] == 1.0
+    # A block directory holding an evaluation of different runs is never silently reused.
+    with pytest.raises(ValueError, match="different runs"):
+        benchmark.evaluate_benchmark(
+            benchmark_dir / "benchmark.json", [first, fb], output=output, workers=1
+        )
     with pytest.raises(ValueError, match="Similarity configuration differs"):
         benchmark.evaluate_benchmark(
             benchmark_dir / "benchmark.json",
@@ -256,3 +271,74 @@ def test_evaluate_benchmark_scores_blocks_into_output(benchmark_dir, tmp_path, m
             output=tmp_path / "other",
             similarity=SimilarityConfig("source"),
         )
+
+
+def test_run_budget_means_claude_and_codex_usage(tmp_path):
+    from assembly_world_agent.artifacts import write_json
+
+    run = tmp_path / "run"
+    write_json(run / "run.json", dict(samples=["a", "b", "c", "d"]))
+    write_json(
+        run / "samples" / "a" / "result.json",
+        dict(
+            duration_seconds=600,
+            execution=dict(
+                cost_usd=6.0,
+                usage=dict(
+                    input_tokens=1000,
+                    cache_creation_input_tokens=9000,
+                    cache_read_input_tokens=90000,
+                    output_tokens=5000,
+                ),
+            ),
+        ),
+    )
+    (run / "samples" / "a" / "conversation.jsonl").write_text(
+        '{"type": "tool_call", "name": "x"}\n{"type": "tool_result"}\n{"type": "tool_call"}\n'
+    )
+    write_json(
+        run / "samples" / "b" / "result.json",
+        dict(
+            duration_seconds=300,
+            execution=dict(
+                cost_usd=None,
+                usage=dict(input_tokens=50000, cached_input_tokens=40000, output_tokens=1000),
+            ),
+        ),
+    )
+    write_json(run / "samples" / "c" / "result.json", dict(status="pending"))
+    # An interrupted attempt without a saved episode is not an evaluation.
+    write_json(
+        run / "samples" / "d" / "result.json",
+        dict(status="failed", duration_seconds=5, archive={"status": "failed"}, agent_outcome=None),
+    )
+    budget = benchmark.run_budget([run], {"a", "b", "c", "d"})
+    assert budget["samples"] == 3
+    assert budget["mean_seconds"] == 450 and budget["mean_cost_usd"] == 6.0
+    assert budget["total_cost_usd"] == 6.0
+    assert budget["mean_input_tokens"] == 75000 and budget["mean_cached_input_tokens"] == 65000
+    assert budget["mean_output_tokens"] == 3000 and budget["mean_tool_calls"] == 2
+    assert budget["reported"] == {
+        "samples": 3,
+        "seconds": 2,
+        "cost_usd": 1,
+        "tokens": 2,
+        "tool_calls": 1,
+    }
+    assert benchmark.run_budget([run], {"zzz"})["mean_seconds"] is None
+
+    # Codex reports tokens only; a known model gets a list-price estimate, marked as such.
+    write_json(run / "run.json", dict(samples=["b"], options=dict(model="gpt-6-astra")))
+    codex = benchmark.run_budget([run], {"b"})
+    assert codex["mean_cost_usd"] == pytest.approx((10000 * 10 + 40000 * 1 + 1000 * 50) / 1e6)
+    assert codex["cost_source"] == ["estimated from list prices (gpt-6-astra, 2026-09-16)"]
+    assert benchmark.estimate_cost("unknown-model", {"input_tokens": 1}) is None
+    assert benchmark.estimate_cost(
+        "gpt-6-astra",
+        {
+            "input_tokens": 100,
+            "cache_creation_input_tokens": 100,
+            "cache_read_input_tokens": 1000,
+            "output_tokens": 10,
+        },
+    ) == pytest.approx((200 * 10 + 1000 * 1 + 10 * 50) / 1e6)

@@ -184,3 +184,10 @@ def test_plan_without_task_uses_each_groups_prompt_file(monkeypatch, tmp_path):
     result = asyncio.run(batch.launch_batch(plan))
     assert result["status"] == "finished"
     assert tasks == ["task for none", "task for image"]
+
+
+def test_timeout_with_saved_archive_is_not_an_infrastructure_failure():
+    saved = {"archive": {"status": "saved"}, "execution": {"status": "timeout"}}
+    assert batch.outcome(saved) == "completed_with_timeout"
+    lost = {"archive": {"status": "failed"}, "execution": {"status": "timeout"}}
+    assert batch.outcome(lost) == "failed"

@@ -124,6 +124,10 @@ def command(options, root, bridge, images=()):
         ]
         if options.get("effort"):
             args += ["-c", "model_reasoning_effort=" + json.dumps(options["effort"])]
+        # User overrides (for example a local OpenAI-compatible provider) come last and
+        # are recorded verbatim in run.json through the options.
+        for override in options.get("codex_config") or []:
+            args += ["-c", override]
         for path in images:
             args += ["--image", str(path)]
         return [*args, "--", "-"]

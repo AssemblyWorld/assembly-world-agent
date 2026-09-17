@@ -75,12 +75,19 @@ class Browser:
             stderr=asyncio.subprocess.DEVNULL,
             start_new_session=True,
         )
+        # Chrome creates DevToolsActivePort before writing the port line; poll until the
+        # file holds a port number, since several browsers may start at the same time.
         async with asyncio.timeout(30):
-            while not (profile / "DevToolsActivePort").exists():
+            while True:
                 if self.process.returncode is not None:
                     raise RuntimeError("Chrome exited during startup")
+                lines = []
+                if (profile / "DevToolsActivePort").exists():
+                    lines = (profile / "DevToolsActivePort").read_text().splitlines()
+                if lines and lines[0].strip().isdigit():
+                    break
                 await asyncio.sleep(0.1)
-        port = (profile / "DevToolsActivePort").read_text().splitlines()[0]
+        port = lines[0].strip()
         self.url = f"http://127.0.0.1:{port}"
         self.playwright = await async_playwright().start()
         self.browser = await self.playwright.chromium.connect_over_cdp(self.url)

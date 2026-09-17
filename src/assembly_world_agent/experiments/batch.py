@@ -14,6 +14,10 @@ def outcome(result):
         return "failed"
     if execution.get("status") == "completed":
         return "completed"
+    if execution.get("status") == "timeout":
+        # The agent ran out of its fixed time budget and the scene was exported as is:
+        # a legitimate (usually failed) evaluation, not an infrastructure failure.
+        return "completed_with_timeout"
     error = execution.get("agent_error") or {}
     if (
         execution.get("exit_code") == 0

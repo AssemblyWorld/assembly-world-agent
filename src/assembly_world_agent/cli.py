@@ -66,6 +66,12 @@ def main(argv=None):
     run.add_argument(
         "--effort", choices=("minimal", "low", "medium", "high", "xhigh", "max", "ultra")
     )
+    run.add_argument(
+        "--codex-config",
+        action="append",
+        metavar="KEY=VALUE",
+        help="Extra Codex `-c` override, repeatable; e.g. a local model provider",
+    )
     run.add_argument("--concurrency", type=_positive_integer, default=1)
     run.add_argument("--timeout-seconds", type=_positive_integer)
     run.add_argument("--prompt-file", type=Path)

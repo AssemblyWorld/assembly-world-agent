@@ -104,6 +104,12 @@ def match_runs_to_blocks(benchmark, runs):
     return grouped
 
 
+def _is_attempt(result):
+    """A sample record that produced a final episode; interrupted or unstarted ones are not."""
+    archive = result.get("archive") or {}
+    return archive.get("status", "saved") == "saved"
+
+
 def agent_outcomes(runs, sample_ids):
     """Count recorded agent outcome statuses over the runs' samples (refusals show as unable)."""
     counter = Counter()
@@ -114,9 +120,129 @@ def agent_outcomes(runs, sample_ids):
                 continue
             path = run / "samples" / sample_name(sid) / "result.json"
             result = json.loads(path.read_text()) if path.is_file() else {}
+            if not _is_attempt(result):
+                continue
             outcome = result.get("agent_outcome") or {}
             counter[str(outcome.get("status") or "none")] += 1
     return dict(sorted(counter.items()))
+
+
+# Published list prices in USD per million tokens, standard tier, short context, used only
+# when an agent CLI reports token usage but no cost (Codex). Recorded with every estimate.
+LIST_PRICES = {
+    "gpt-6-astra": dict(
+        input=10.0,
+        cached_input=1.0,
+        output=50.0,
+        source="https://developers.openai.com/api/docs/pricing",
+        retrieved="2026-09-16",
+    ),
+    # Served locally with vLLM; priced at the OpenRouter list price for the same model so
+    # the cost column stays comparable with hosted systems.
+    "qwen3.8-27b": dict(
+        input=0.214,
+        cached_input=0.15,
+        output=2.55,
+        source="https://openrouter.ai/qwen/qwen3.8-27b",
+        retrieved="2026-09-16",
+    ),
+}
+
+
+def estimate_cost(model, usage):
+    """USD from list prices for CLIs that report tokens only; None for unknown models."""
+    prices = LIST_PRICES.get(model)
+    if not prices or not usage:
+        return None
+    cached = usage.get("cache_read_input_tokens", usage.get("cached_input_tokens", 0))
+    if "cache_read_input_tokens" in usage:
+        uncached = usage.get("input_tokens", 0) + usage.get("cache_creation_input_tokens", 0)
+    else:
+        uncached = usage.get("input_tokens", 0) - cached
+    return (uncached * prices["input"] + cached * prices["cached_input"]) / 1e6 + usage.get(
+        "output_tokens", 0
+    ) * prices["output"] / 1e6
+
+
+def run_budget(runs, sample_ids):
+    """Per-evaluation means of wall time, cost, tokens and tool calls over the runs' samples.
+
+    Wall time is the harness measurement from browser start to episode export, so it is
+    comparable across agents. Cost is the agent CLI's own figure when it reports one
+    (Claude Code does; Codex does not). Tokens are split into total input (including
+    cache reads and writes), output, and cached input, using each CLI's usage fields.
+    """
+    totals = Counter()
+    counted = Counter()
+    cost_sources = set()
+    for run in runs:
+        run, meta = _run_meta(run)
+        model = (meta.get("options") or {}).get("model")
+        for sid in meta.get("samples", []):
+            if sid not in sample_ids:
+                continue
+            sample = run / "samples" / sample_name(sid)
+            path = sample / "result.json"
+            if not path.is_file():
+                continue
+            result = json.loads(path.read_text())
+            if not _is_attempt(result):
+                continue
+            execution = result.get("execution") or {}
+            usage = execution.get("usage") or {}
+            counted["samples"] += 1
+            if result.get("duration_seconds") is not None:
+                totals["seconds"] += float(result["duration_seconds"])
+                counted["seconds"] += 1
+            if execution.get("cost_usd") is not None:
+                totals["cost_usd"] += float(execution["cost_usd"])
+                counted["cost_usd"] += 1
+                cost_sources.add("reported by the agent CLI")
+            elif (estimate := estimate_cost(model, usage)) is not None:
+                totals["cost_usd"] += estimate
+                counted["cost_usd"] += 1
+                cost_sources.add(
+                    f"estimated from list prices ({model}, {LIST_PRICES[model]['retrieved']})"
+                )
+            if usage:
+                cached = usage.get("cache_read_input_tokens", usage.get("cached_input_tokens", 0))
+                if "cache_read_input_tokens" in usage:  # Claude Code: input excludes cache
+                    total_input = (
+                        usage.get("input_tokens", 0)
+                        + usage.get("cache_creation_input_tokens", 0)
+                        + cached
+                    )
+                else:  # Codex: input_tokens already includes cached input
+                    total_input = usage.get("input_tokens", 0)
+                totals["input_tokens"] += total_input
+                totals["cached_input_tokens"] += cached
+                totals["output_tokens"] += usage.get("output_tokens", 0)
+                counted["tokens"] += 1
+            conversation = sample / "conversation.jsonl"
+            if conversation.is_file():
+                calls = sum(
+                    1
+                    for line in conversation.read_text().splitlines()
+                    if line.startswith('{"') and '"type": "tool_call"' in line
+                )
+                totals["tool_calls"] += calls
+                counted["tool_calls"] += 1
+
+    def mean(total_key, count_key):
+        return totals[total_key] / counted[count_key] if counted[count_key] else None
+
+    return dict(
+        samples=counted["samples"],
+        mean_seconds=mean("seconds", "seconds"),
+        mean_cost_usd=mean("cost_usd", "cost_usd"),
+        total_cost_usd=totals["cost_usd"] if counted["cost_usd"] else None,
+        cost_source=sorted(cost_sources),
+        mean_input_tokens=mean("input_tokens", "tokens"),
+        mean_cached_input_tokens=mean("cached_input_tokens", "tokens"),
+        mean_output_tokens=mean("output_tokens", "tokens"),
+        mean_tool_calls=mean("tool_calls", "tool_calls"),
+        reported=dict(counted),
+    )
 
 
 def wilson_interval(successes, total, z=1.959963984540054):
@@ -184,7 +310,7 @@ def block_scores(benchmark, block, rows):
     )
 
 
-def summarize_benchmark(benchmark, block_rows, outcomes=None):
+def summarize_benchmark(benchmark, block_rows, outcomes=None, budgets=None):
     """Two-level Overall: mean over sources of the mean over that source's blocks."""
     blocks = {block["name"]: block for block in benchmark["blocks"]}
     unknown = set(block_rows) - set(blocks)
@@ -194,6 +320,7 @@ def summarize_benchmark(benchmark, block_rows, outcomes=None):
     for name in blocks:
         scores[name] = block_scores(benchmark, blocks[name], block_rows.get(name, {}))
         scores[name]["agent_outcomes"] = (outcomes or {}).get(name, {})
+        scores[name]["budget"] = (budgets or {}).get(name)
         scores[name]["evaluated"] = name in block_rows
     # Blocks without any run are listed but stay out of the means; missing samples
     # inside an evaluated block already count as SR=0. Status reports completeness.
@@ -231,10 +358,30 @@ def format_summary(summary):
             f"  {name:28} SR {pct(block['SR'])}{span}"
             f"  ({block['scored']}/{block['expected']} scored){note}"
         )
+        budget = block.get("budget")
+        if budget and budget["samples"]:
+            cost = budget["mean_cost_usd"]
+            lines.append(
+                f"  {'':28} per eval: "
+                f"{(budget['mean_seconds'] or 0) / 60:.1f} min, "
+                + ("cost n/a" if cost is None else f"${cost:.2f}")
+                + f", in {(budget['mean_input_tokens'] or 0) / 1000:.0f}k"
+                f" / out {(budget['mean_output_tokens'] or 0) / 1000:.1f}k tokens, "
+                f"{budget['mean_tool_calls'] or 0:.0f} tool calls"
+            )
     for source, value in summary["sources"].items():
         lines.append(f"  {source + ' (source)':28} SR {pct(value)}")
     lines.append(f"  {'Overall':28} SR {pct(summary['overall_SR'])}")
     return "\n".join(lines)
+
+
+def _reusable(directory, runs):
+    """True when ``directory`` already holds a complete evaluation of exactly these runs."""
+    meta = directory / "meta.json"
+    if not meta.is_file() or not (directory / "metrics.jsonl").is_file():
+        return False
+    recorded = json.loads(meta.read_text()).get("runs")
+    return recorded == [str(Path(run).resolve()) for run in runs]
 
 
 def evaluate_benchmark(benchmark_path, runs, *, output, cache_dir=None, similarity=None, workers=4):
@@ -250,7 +397,7 @@ def evaluate_benchmark(benchmark_path, runs, *, output, cache_dir=None, similari
         raise ValueError("Similarity configuration differs from the benchmark protocol")
     grouped = match_runs_to_blocks(benchmark, runs)
     output = Path(output).resolve()
-    output.mkdir(parents=True, exist_ok=False)
+    output.mkdir(parents=True, exist_ok=True)
     write_json(
         output / "meta.json",
         dict(
@@ -259,15 +406,25 @@ def evaluate_benchmark(benchmark_path, runs, *, output, cache_dir=None, similari
             runs={name: [str(r) for r in block_runs] for name, block_runs in grouped.items()},
         ),
     )
-    block_rows, outcomes = {}, {}
+    block_rows, outcomes, budgets = {}, {}, {}
     for name, block_runs in grouped.items():
-        evaluate_runs(
-            block_runs, output / name, cache_dir=cache_dir, similarity=similarity, workers=workers
-        )
+        # An existing block evaluation over the same runs is reused, so a growing set
+        # of runs only scores the blocks that changed since the previous call.
+        if not _reusable(output / name, block_runs):
+            if (output / name).exists():
+                raise ValueError(f"{output / name} holds an evaluation of different runs")
+            evaluate_runs(
+                block_runs,
+                output / name,
+                cache_dir=cache_dir,
+                similarity=similarity,
+                workers=workers,
+            )
         block_rows[name] = read_rows(output / name)
         block = next(b for b in benchmark["blocks"] if b["name"] == name)
         outcomes[name] = agent_outcomes(block_runs, set(block["samples"]))
-    summary = summarize_benchmark(benchmark, block_rows, outcomes)
+        budgets[name] = run_budget(block_runs, set(block["samples"]))
+    summary = summarize_benchmark(benchmark, block_rows, outcomes, budgets)
     summary["output"] = str(output)
     write_json(output / "benchmark_summary.json", summary)
     return summary
