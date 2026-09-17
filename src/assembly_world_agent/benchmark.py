@@ -69,8 +69,13 @@ def _run_meta(run):
     return run, json.loads(metadata.read_text())
 
 
-def block_for_run(benchmark, run):
-    """The unique block a run belongs to, or an error naming what differs."""
+def block_for_run(benchmark, run, *, accept_task_mismatch=False):
+    """The unique block a run belongs to, or an error naming what differs.
+
+    With ``accept_task_mismatch`` a run whose recorded task text differs from the
+    block's ``task.txt`` (for example an imported historical run) is matched anyway;
+    the caller records the mismatch instead of hiding it.
+    """
     run, meta = _run_meta(run)
     config = meta.get("config") or {}
     identity = config.get("identity") or {}
@@ -90,16 +95,23 @@ def block_for_run(benchmark, run):
     for sid, item in config["samples"].items():
         if item.get("sha256") != block["samples"][sid]["sha256"]:
             raise ValueError(f"{run.name}: initial episode differs for {sid}")
-    if sha256(meta.get("task", "").encode()) != block["prompt_sha256"]:
+    if sha256(meta.get("task", "").encode()) != block["prompt_sha256"] and not accept_task_mismatch:
         raise ValueError(f"{run.name}: task text differs from block {block['name']}")
     return block
 
 
-def match_runs_to_blocks(benchmark, runs):
+def task_matches(benchmark, run):
+    """Whether a run's recorded task text is the block's ``task.txt``."""
+    block = block_for_run(benchmark, run, accept_task_mismatch=True)
+    _, meta = _run_meta(run)
+    return sha256(meta.get("task", "").encode()) == block["prompt_sha256"]
+
+
+def match_runs_to_blocks(benchmark, runs, *, accept_task_mismatch=False):
     """Group run directories by block; every run must belong to exactly one block."""
     grouped = {}
     for run in runs:
-        block = block_for_run(benchmark, run)
+        block = block_for_run(benchmark, run, accept_task_mismatch=accept_task_mismatch)
         grouped.setdefault(block["name"], []).append(Path(run).resolve())
     return grouped
 
@@ -219,6 +231,9 @@ def run_budget(runs, sample_ids):
                 totals["output_tokens"] += usage.get("output_tokens", 0)
                 counted["tokens"] += 1
             conversation = sample / "conversation.jsonl"
+            if not conversation.is_file() and result.get("native_webmcp_call_count") is not None:
+                totals["tool_calls"] += int(result["native_webmcp_call_count"])
+                counted["tool_calls"] += 1
             if conversation.is_file():
                 calls = sum(
                     1
@@ -310,7 +325,7 @@ def block_scores(benchmark, block, rows):
     )
 
 
-def summarize_benchmark(benchmark, block_rows, outcomes=None, budgets=None):
+def summarize_benchmark(benchmark, block_rows, outcomes=None, budgets=None, task_match=None):
     """Two-level Overall: mean over sources of the mean over that source's blocks."""
     blocks = {block["name"]: block for block in benchmark["blocks"]}
     unknown = set(block_rows) - set(blocks)
@@ -321,6 +336,7 @@ def summarize_benchmark(benchmark, block_rows, outcomes=None, budgets=None):
         scores[name] = block_scores(benchmark, blocks[name], block_rows.get(name, {}))
         scores[name]["agent_outcomes"] = (outcomes or {}).get(name, {})
         scores[name]["budget"] = (budgets or {}).get(name)
+        scores[name]["task_matches"] = (task_match or {}).get(name)
         scores[name]["evaluated"] = name in block_rows
     # Blocks without any run are listed but stay out of the means; missing samples
     # inside an evaluated block already count as SR=0. Status reports completeness.
@@ -354,6 +370,8 @@ def format_summary(summary):
             "" if interval is None else f"  [95% {100 * interval[0]:.1f}, {100 * interval[1]:.1f}]"
         )
         note = "" if block["evaluated"] else "  (no run)"
+        if block.get("task_matches") is False:
+            note += "  (legacy task text)"
         lines.append(
             f"  {name:28} SR {pct(block['SR'])}{span}"
             f"  ({block['scored']}/{block['expected']} scored){note}"
@@ -384,7 +402,16 @@ def _reusable(directory, runs):
     return recorded == [str(Path(run).resolve()) for run in runs]
 
 
-def evaluate_benchmark(benchmark_path, runs, *, output, cache_dir=None, similarity=None, workers=4):
+def evaluate_benchmark(
+    benchmark_path,
+    runs,
+    *,
+    output,
+    cache_dir=None,
+    similarity=None,
+    workers=4,
+    accept_task_mismatch=False,
+):
     """Score benchmark runs block by block into ``output`` and aggregate; runs stay untouched."""
     from .evaluation import evaluate_runs
     from .similarity import SimilarityConfig
@@ -395,7 +422,11 @@ def evaluate_benchmark(benchmark_path, runs, *, output, cache_dir=None, similari
     similarity = similarity or expected
     if similarity != expected:
         raise ValueError("Similarity configuration differs from the benchmark protocol")
-    grouped = match_runs_to_blocks(benchmark, runs)
+    grouped = match_runs_to_blocks(benchmark, runs, accept_task_mismatch=accept_task_mismatch)
+    task_match = {
+        name: all(task_matches(benchmark, run) for run in block_runs)
+        for name, block_runs in grouped.items()
+    }
     output = Path(output).resolve()
     output.mkdir(parents=True, exist_ok=True)
     write_json(
@@ -424,7 +455,7 @@ def evaluate_benchmark(benchmark_path, runs, *, output, cache_dir=None, similari
         block = next(b for b in benchmark["blocks"] if b["name"] == name)
         outcomes[name] = agent_outcomes(block_runs, set(block["samples"]))
         budgets[name] = run_budget(block_runs, set(block["samples"]))
-    summary = summarize_benchmark(benchmark, block_rows, outcomes, budgets)
+    summary = summarize_benchmark(benchmark, block_rows, outcomes, budgets, task_match)
     summary["output"] = str(output)
     write_json(output / "benchmark_summary.json", summary)
     return summary

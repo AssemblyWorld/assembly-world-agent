@@ -793,6 +793,9 @@ resumed run) are joined by sample identity and scored into
 `logs/assemblyworldbench/evaluation/<timestamp>/<block>/`; archived runs are never written to.
 Passing the same `--output` again reuses every block whose run set is unchanged and scores only
 the blocks that are new or changed, so a growing benchmark run can be re-aggregated cheaply.
+A run whose recorded task text is not the block's `task.txt` is rejected unless
+`--accept-task-mismatch` is given; the summary then records `task_matches: false` for that block
+and the SR line says `(legacy task text)`, so imported historical runs stay visibly different.
 Every block uses the free-space `assembly-evaluation-v2` protocol with the `geometry`
 similarity policy, including Fantastic Breaks; the GARF-style fracture table keeps its own
 protocol and is not pooled. A sample without a scored row counts SR=0 and PA=0. Overall is the

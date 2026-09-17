@@ -27,6 +27,11 @@ def main():
     parser.add_argument("--sample-id", action="append", help="Restrict scoring to these IDs")
     parser.add_argument("--benchmark", type=Path, help="benchmark.json to score and aggregate")
     parser.add_argument("--json", action="store_true", help="Print the full benchmark summary")
+    parser.add_argument(
+        "--accept-task-mismatch",
+        action="store_true",
+        help="Match runs whose task text differs from the block's task.txt; recorded per block",
+    )
     parser.add_argument("--cache-dir", type=Path)
     parser.add_argument("--workers", type=int, default=4)
     parser.add_argument("--similarity-policy", choices=("source", "geometry"))
@@ -56,6 +61,7 @@ def main():
             cache_dir=args.cache_dir,
             similarity=similarity if explicit else None,
             workers=args.workers,
+            accept_task_mismatch=args.accept_task_mismatch,
         )
         print(json.dumps(summary, indent=2) if args.json else format_summary(summary))
         return 0 if summary["status"] == "complete" else 1

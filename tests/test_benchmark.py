@@ -134,6 +134,10 @@ def test_block_for_run_matches_by_identity_and_task(benchmark_dir, tmp_path):
     other = _write_run(tmp_path / "run-task", blocks["partnet-none"], ["1"], task="different")
     with pytest.raises(ValueError, match="task text differs"):
         benchmark.block_for_run(value, other)
+    assert (
+        benchmark.block_for_run(value, other, accept_task_mismatch=True)["name"] == "partnet-none"
+    )
+    assert benchmark.task_matches(value, other) is False and benchmark.task_matches(value, none)
     foreign = _write_run(tmp_path / "run-sha", blocks["partnet-none"], ["1"], sha={"1": "zz"})
     with pytest.raises(ValueError, match="initial episode differs"):
         benchmark.block_for_run(value, foreign)
@@ -264,6 +268,23 @@ def test_evaluate_benchmark_scores_blocks_into_output(benchmark_dir, tmp_path, m
         benchmark.evaluate_benchmark(
             benchmark_dir / "benchmark.json", [first, fb], output=output, workers=1
         )
+    # Imported historical runs with another task text are accepted only on request and flagged.
+    legacy = _write_run(
+        tmp_path / "legacy-ab", blocks["assemblybench-final-image"], ["7"], task="old"
+    )
+    with pytest.raises(ValueError, match="task text differs"):
+        benchmark.evaluate_benchmark(
+            benchmark_dir / "benchmark.json", [legacy], output=tmp_path / "legacy-out", workers=1
+        )
+    flagged = benchmark.evaluate_benchmark(
+        benchmark_dir / "benchmark.json",
+        [legacy],
+        output=tmp_path / "legacy-out",
+        workers=1,
+        accept_task_mismatch=True,
+    )
+    assert flagged["blocks"]["assemblybench-final-image"]["task_matches"] is False
+    assert "(legacy task text)" in benchmark.format_summary(flagged)
     with pytest.raises(ValueError, match="Similarity configuration differs"):
         benchmark.evaluate_benchmark(
             benchmark_dir / "benchmark.json",
