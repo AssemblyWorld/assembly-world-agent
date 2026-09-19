@@ -155,6 +155,20 @@ LIST_PRICES = {
         source="https://developers.openai.com/api/docs/pricing",
         retrieved="2026-09-16",
     ),
+    "gpt-5.6-sol": dict(
+        input=4.0,
+        cached_input=0.4,
+        output=20.0,
+        source="https://developers.openai.com/api/docs/pricing",
+        retrieved="2026-09-20",
+    ),
+    "gpt-5.6-terra": dict(
+        input=2.0,
+        cached_input=0.2,
+        output=12.0,
+        source="https://developers.openai.com/api/docs/pricing",
+        retrieved="2026-09-20",
+    ),
     # Served locally with vLLM; priced at the OpenRouter list price for the same model so
     # the cost column stays comparable with hosted systems.
     "qwen3.8-27b": dict(
