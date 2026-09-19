@@ -158,6 +158,39 @@ LIST_PRICES = {
         source="https://openrouter.ai/qwen/qwen3.8-27b",
         retrieved="2026-09-16",
     ),
+    # DeepSeek V4.1 Flash called directly on api.deepseek.com. DeepSeek charges twice these
+    # rates during peak hours (01:00-04:00 and 06:00-10:00 UTC on weekdays); the off-peak
+    # rates are recorded here and the provenance notes when each block ran.
+    "deepseek-flash": dict(
+        input=0.15,
+        cached_input=0.003,
+        output=0.60,
+        source="https://api-docs.deepseek.com/quick_start/pricing",
+        retrieved="2026-09-19",
+    ),
+    # Alibaba-hosted Qwen3.8-Flash reached through OpenRouter (its only provider).
+    "qwen/qwen3.8-flash": dict(
+        input=0.15,
+        cached_input=0.016,
+        output=0.47,
+        source="https://openrouter.ai/qwen/qwen3.8-flash",
+        retrieved="2026-09-17",
+    ),
+    # Same model called directly on Alibaba Model Studio (DashScope), same list price.
+    "qwen3.8-flash": dict(
+        input=0.15,
+        cached_input=0.016,
+        output=0.47,
+        source="https://www.qwencloud.com/pricing/api",
+        retrieved="2026-09-18",
+    ),
+    "qwen3.8-max": dict(
+        input=2.0,
+        cached_input=0.25,
+        output=6.0,
+        source="https://www.qwencloud.com/pricing/api",
+        retrieved="2026-09-18",
+    ),
 }
 
 
