@@ -327,20 +327,22 @@ def test_run_budget_means_claude_and_codex_usage(tmp_path):
             ),
         ),
     )
+    # A sample a drained batch never dispatched is not an evaluation.
     write_json(run / "samples" / "c" / "result.json", dict(status="pending"))
+    (run / "samples" / "c" / "conversation.jsonl").write_text("")
     # An interrupted attempt without a saved episode is not an evaluation.
     write_json(
         run / "samples" / "d" / "result.json",
         dict(status="failed", duration_seconds=5, archive={"status": "failed"}, agent_outcome=None),
     )
     budget = benchmark.run_budget([run], {"a", "b", "c", "d"})
-    assert budget["samples"] == 3
+    assert budget["samples"] == 2
     assert budget["mean_seconds"] == 450 and budget["mean_cost_usd"] == 6.0
     assert budget["total_cost_usd"] == 6.0
     assert budget["mean_input_tokens"] == 75000 and budget["mean_cached_input_tokens"] == 65000
     assert budget["mean_output_tokens"] == 3000 and budget["mean_tool_calls"] == 2
     assert budget["reported"] == {
-        "samples": 3,
+        "samples": 2,
         "seconds": 2,
         "cost_usd": 1,
         "tokens": 2,

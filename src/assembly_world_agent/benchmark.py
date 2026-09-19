@@ -117,7 +117,13 @@ def match_runs_to_blocks(benchmark, runs, *, accept_task_mismatch=False):
 
 
 def _is_attempt(result):
-    """A sample record that produced a final episode; interrupted or unstarted ones are not."""
+    """A sample record that produced a final episode; interrupted or unstarted ones are not.
+
+    A drained batch leaves undispatched samples behind as pending records with no archive,
+    so they must not be counted as evaluations when a continuation run is joined with it.
+    """
+    if result.get("status") in {"pending", "running"}:
+        return False
     archive = result.get("archive") or {}
     return archive.get("status", "saved") == "saved"
 
