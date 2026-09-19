@@ -29,6 +29,12 @@ logs/                             # Ignored individual experiments
       conversation.jsonl
       result.json
       final.episode.zip
+results/                          # Ignored public results package; layout in results/AGENTS.md
+  <table>/<system>/<block>/
+    run.json
+    task.txt
+    samples/<sample-id>/
+    evaluation/
 scripts/                          # Python command entrypoints
 src/assembly_world_agent/         # APIs, adapters, contracts and shared utils
 tests/                            # Offline regression tests
