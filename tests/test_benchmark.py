@@ -298,7 +298,9 @@ def test_run_budget_means_claude_and_codex_usage(tmp_path):
     from assembly_world_agent.artifacts import write_json
 
     run = tmp_path / "run"
-    write_json(run / "run.json", dict(samples=["a", "b", "c", "d"]))
+    # "e" is listed by the run but has no sample directory at all, as happens when a
+    # record is set aside and another run in the join supplies that sample.
+    write_json(run / "run.json", dict(samples=["a", "b", "c", "d", "e"]))
     write_json(
         run / "samples" / "a" / "result.json",
         dict(
@@ -335,6 +337,7 @@ def test_run_budget_means_claude_and_codex_usage(tmp_path):
         run / "samples" / "d" / "result.json",
         dict(status="failed", duration_seconds=5, archive={"status": "failed"}, agent_outcome=None),
     )
+    assert benchmark.agent_outcomes([run], {"a", "b", "c", "d", "e"}) == {"none": 2}
     budget = benchmark.run_budget([run], {"a", "b", "c", "d"})
     assert budget["samples"] == 2
     assert budget["mean_seconds"] == 450 and budget["mean_cost_usd"] == 6.0

@@ -137,7 +137,12 @@ def agent_outcomes(runs, sample_ids):
             if sid not in sample_ids:
                 continue
             path = run / "samples" / sample_name(sid) / "result.json"
-            result = json.loads(path.read_text()) if path.is_file() else {}
+            # A run that lists a sample it holds no record for contributes nothing: the
+            # sample was either never dispatched or its record was set aside, and another
+            # run in the join supplies it.
+            if not path.is_file():
+                continue
+            result = json.loads(path.read_text())
             if not _is_attempt(result):
                 continue
             outcome = result.get("agent_outcome") or {}
