@@ -996,6 +996,58 @@ summary is `incomplete` and the CLI exits with status 1 if any sample fails; no
 failed sample is silently omitted from the expected count. With zero scored
 samples the averages are null. A complete run exits with status 0.
 
+### Paper analysis from exported results
+
+The four entry notebooks consume the exported `results/` package. They never read
+historical experiment directories or a scratchpad. Existing keyed evaluator inputs
+under `data/` supply private ground-truth point clouds through the evaluation API;
+they are not additional experiment records.
+
+| Notebook | Responsibility |
+|---|---|
+| `paper_results.ipynb` | Tables, paired intervals, Holm-adjusted comparisons, references, complexity, evidence coverage |
+| `tool_call_timeline.ipynb` | Recorded behavior, exact completed-state budget truncation, official trajectory scores, registration sensitivity |
+| `paper_qualitative.ipynb` | Deterministically selected cross-domain, reference, trajectory and geometric-failure examples |
+| `paper_refinement.ipynb` | Refinement evidence audit; no hybrid numbers without matched records |
+
+From the project root, execute `uv run --extra episodes --group inspection python notebooks/run_paper_notebooks.py`.
+The project environment needs the episode and inspection dependencies. The first
+configuration cell selects results, the sibling paper output, the derived cache,
+and recomputation settings. The timeline notebook reuses validated geometry caches
+and computes missing states by default. Set `COMPUTE_MISSING = False` only for a
+diagnostic preview; missing quality coverage stays explicit. Exact multistart
+registration over all eight systems can take hours.
+
+The optional `paper_remote_score.py` transport stages only scoring source on a
+user-controlled SSH host. Explicit `--host`, `--python`, and `--workers` arguments
+select that host's environment; `--states-per-job 1` balances expensive residual
+states across workers. Private evaluator arrays travel through memory over
+SSH, and returned scores are stored locally. Run local `compute_trajectories` afterward
+to assemble episode analyses and check endpoint agreement. No new agent trials run.
+
+Derived statistics and validated geometry caches remain in
+`notebooks/.cache/paper-analysis/`. Scientific figures retain vector text and lines;
+3D surfaces are rasterized at 300 dpi inside PDF. Figures go to
+`../AssemblyWorldBench/fig/<group>/`, and generated tables go to its `tab/` directory.
+Run `uv run python notebooks/paper_provenance.py` after executing all notebooks to
+refresh compact input, implementation and output hashes in the manuscript repository.
+
+All Overall PA/SR statistics preserve equal source weights and paired PartNet
+conditions. Absolute budgets select the last completed operation using environment
+completion events. Final geometry is independently rescored with its recorded
+alignment; intermediate geometry uses the official multistart alignment. The
+regression audit additionally freezes preceding alignment and matching to expose
+measurement sensitivity. No gap between calls is labeled as model thinking time.
+
+The exported package currently lacks the six-shape robustness pilot, matched GARF
+and agent-initialized refinement runs, and the legacy no-reference PartNet Table
+records. These gaps remain explicit. Published specialized baseline entries are
+retained as contextual comparisons under different protocols.
+
+Verification: `uv run pytest notebooks/test_paper_analysis.py -q`. This checks source
+weighting, PartNet pairing, exact budget boundaries, multiplicity correction, official
+headline agreement, and immutability of the input package.
+
 ### Interactive metric inspection
 
 `notebooks/inspect_metrics.ipynb` is a read-only, step-by-step inspection notebook.
