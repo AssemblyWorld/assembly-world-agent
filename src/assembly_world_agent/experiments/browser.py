@@ -13,7 +13,7 @@ from ..episodes import sha256
 from .serving import environment_url
 
 MCP_VERSION = "1.8.0"
-DEFAULT_ENVIRONMENT = "https://3dwebagent.davidz.cn/"
+DEFAULT_ENVIRONMENT = "https://assemblyworld.github.io/3DWebAgent/"
 
 
 def chrome_path(explicit=None):

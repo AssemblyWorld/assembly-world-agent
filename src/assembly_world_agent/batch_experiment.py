@@ -82,7 +82,7 @@ def create_run(configuration, logs, port=18765):
             configuration=str(configuration),
             config=config,
             code_commit=commit,
-            environment="https://3dwebagent.davidz.cn/",
+            environment="https://assemblyworld.github.io/3DWebAgent/",
             port=port,
             model_policy="inherit parent; record observed runtime configuration",
             concurrency=dict(pilot=1, initial=2, maximum=3),
@@ -105,7 +105,7 @@ def create_run(configuration, logs, port=18765):
             sample_id=sid,
             episode_url=episode_url,
             manual_url=manual_url,
-            environment_url="https://3dwebagent.davidz.cn/?episode=" + quote(episode_url, safe=""),
+            environment_url="https://assemblyworld.github.io/3DWebAgent/?episode=" + quote(episode_url, safe=""),
             manual_directory=str(directory / "manualbook"),
             sample_directory=str(directory),
         )

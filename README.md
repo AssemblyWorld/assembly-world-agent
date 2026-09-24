@@ -201,7 +201,7 @@ failed samples and retry them in a separate run rather than silently replacing
 results. The three-sample pilot and retries do not establish full-test performance.
 
 Each sample receives its own Chrome process/profile, MCP connection and CLI
-process. The default environment is `https://3dwebagent.davidz.cn/`; supply
+process. The default environment is `https://assemblyworld.github.io/3DWebAgent/`; supply
 `--environment-url` to use an already-running pinned deployment. One static episode
 service is shared by every worker in a run, including single-episode runs and
 resumes. It binds to an ephemeral port on `127.0.0.1` and serves only explicitly
