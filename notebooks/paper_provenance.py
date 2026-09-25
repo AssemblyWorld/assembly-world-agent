@@ -114,7 +114,7 @@ def write():
         unique_nonterminal_pose_cache_entries=len(list((pa.CACHE / "state_scores").glob("*.json"))),
         reports=reports,
         official_style_unchanged=True,
-        review_status="Internal content draft; evidence gaps and submission layout remain explicit. Visual inspection is agent-assisted, not a human annotation study.",
+        review_status="Internal content draft; evidence gaps and layout questions remain explicit. Visual inspection is agent-assisted, not a human annotation study.",
     )
     output["remote_scoring"] = []
     for filename in [
